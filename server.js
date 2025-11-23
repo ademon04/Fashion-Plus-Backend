@@ -4,6 +4,8 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
 require('dotenv').config();
+const cloudinary = require('cloudinary').v2;
+
 
 const app = express();
 
@@ -22,6 +24,13 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // 3. Cookie parser
 app.use(cookieParser());
+// Configura Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
+});
+
 
 // 4. Archivos estáticos ANTES de las rutas
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -93,3 +102,5 @@ app.listen(PORT, () => {
   console.log(`🌐 Frontend: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
   console.log(`📁 Archivos estáticos: http://localhost:${PORT}/uploads/`);
 });
+
+//https://fashion-plus-backend-production.up.railway.app/
