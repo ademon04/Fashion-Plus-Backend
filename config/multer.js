@@ -14,7 +14,7 @@ const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
     folder: 'fashion-plus',
-    format: async (req, file) => 'webp', // Convierte automáticamente a webp
+    format: async (req, file) => 'webp',
     public_id: (req, file) => {
       const timestamp = Date.now();
       const originalName = file.originalname.split('.')[0];
@@ -23,7 +23,6 @@ const storage = new CloudinaryStorage({
   },
 });
 
-// Filtro para asegurar que solo imágenes sean aceptadas
 const fileFilter = (req, file, cb) => {
   const allowed = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
   if (allowed.includes(file.mimetype)) {
