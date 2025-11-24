@@ -1,6 +1,7 @@
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const { MercadoPagoConfig, Preference } = require('mercadopago');
+const crypto = require('crypto');
 
 const client = new MercadoPagoConfig({
   accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
@@ -218,6 +219,27 @@ exports.createOrder = async (req, res) => {
 exports.webhook = async (req, res) => {
   try {
     console.log("📡 WEBHOOK RECIBIDO");
+    
+    // ✅ VALIDAR CLAVE SECRETA DEL WEBHOOK
+    const signature = req.headers['x-signature'];
+    const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+    
+    if (webhookSecret && signature) {
+      const payload = JSON.stringify(req.body);
+      const computedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(payload)
+        .digest('hex');
+      
+      if (signature !== computedSignature) {
+        console.log("❌ Webhook rechazado - firma inválida");
+        return res.sendStatus(403);
+      }
+      console.log("✅ Webhook autenticado correctamente");
+    } else {
+      console.log("⚠️ Webhook sin validación de firma (secreto no configurado)");
+    }
+
     console.log("📋 Headers:", req.headers);
     console.log("📦 Body:", JSON.stringify(req.body, null, 2));
 
