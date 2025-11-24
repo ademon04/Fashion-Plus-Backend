@@ -94,7 +94,7 @@ exports.quickRegister = async (req, res) => {
 
 exports.register = async (req, res) => {
   try {
-    const User = require('../models/User');
+    // const User = require('../models/User');  // <- Eliminar esta línea
     const { name, email, password, role } = req.body;
 
     const existingUser = await User.findOne({ email });
