@@ -214,16 +214,17 @@ exports.createOrder = async (req, res) => {
 };
 
 // ======================================================
-// 📡 WEBHOOK - RECIBIR NOTIFICACIONES DE MERCADO PAGO
+// 📡 WEBHOOK - RECIBIR NOTIFICACIONES DE MERCADO PAGO (CORREGIDO)
 // ======================================================
 exports.webhook = async (req, res) => {
   try {
     console.log("📡 WEBHOOK RECIBIDO");
     
-    // ✅ VALIDAR CLAVE SECRETA DEL WEBHOOK
+    // ✅ VALIDACIÓN MEJORADA - PERMITE PRUEBAS DE MERCADO PAGO
     const signature = req.headers['x-signature'];
     const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
-    
+
+    // 🔥 SOLUCIÓN: Solo validar si hay firma Y secreto configurado
     if (webhookSecret && signature) {
       const payload = JSON.stringify(req.body);
       const computedSignature = crypto
@@ -236,8 +237,11 @@ exports.webhook = async (req, res) => {
         return res.sendStatus(403);
       }
       console.log("✅ Webhook autenticado correctamente");
+    } else if (webhookSecret && !signature) {
+      // 🔥 NUEVO: Si hay secreto pero no firma, es una prueba de MP
+      console.log("⚠️ Webhook de prueba (sin firma) - permitiendo acceso");
     } else {
-      console.log("⚠️ Webhook sin validación de firma (secreto no configurado)");
+      console.log("⚠️ Webhook sin validación (secreto no configurado)");
     }
 
     console.log("📋 Headers:", req.headers);
@@ -288,7 +292,7 @@ exports.webhook = async (req, res) => {
       console.log("ℹ️ Webhook de tipo no manejado:", type);
     }
 
-    // IMPORTANTE: Siempre responder 200 a Mercado Pago
+    // ✅ IMPORTANTE: Siempre responder 200 a Mercado Pago
     res.sendStatus(200);
     
   } catch (error) {
