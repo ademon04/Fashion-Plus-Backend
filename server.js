@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const path = require('path');
 require('dotenv').config();
 const upload = require('./config/multer');
+const multer = require('multer');
 
 const app = express();
 
@@ -71,14 +72,16 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
     res.status(500).json({ error: 'Error al subir imagen' });
   }
 });
-
+app.use('/api/payments/webhook/stripe', 
+  express.raw({type: 'application/json'}),
+  require('./routes/payments').handleWebhookStripe // Ruta específica
+);
 // Rutas API
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/cart', require('./routes/cart'));
 app.use('/api/sessions', require('./routes/sessions'));
-app.use('/api/payments', require('./routes/payments'));
 
 
 // Middleware para corregir URLs de imágenes en respuestas

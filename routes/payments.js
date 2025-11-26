@@ -10,4 +10,9 @@ router.post('/webhook/:provider',
 router.get('/providers', paymentController.getPaymentProviders);
 router.post('/create-checkout', paymentController.createPaymentCheckout);
 
+router.handleWebhookStripe = (req, res) => {
+  req.params = { provider: 'stripe' }; // Set provider manualmente
+  paymentController.handlePaymentWebhook(req, res);
+};
+
 module.exports = router;

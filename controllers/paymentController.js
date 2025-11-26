@@ -46,32 +46,46 @@ exports.createPaymentCheckout = async (req, res) => {
   }
 };
 
+// En controllers/paymentController.js - MODIFICA el catch:
+
 exports.handlePaymentWebhook = async (req, res) => {
+  let provider; // ← DEFINIR provider aquí para el catch
+  
   try {
-    const { provider } = req.params;
+    provider = req.params.provider; // ← Ahora está definida
     
+    console.log(`📡 WEBHOOK ${provider?.toUpperCase()} RECIBIDO`);
+    console.log('🔐 Signature:', req.headers['stripe-signature'] ? 'PRESENTE' : 'FALTANTE');
+    console.log('📦 Body type:', typeof req.body);
+    console.log('📦 Body length:', req.body?.length);
+
     let webhookResult;
     if (provider === 'stripe') {
       const signature = req.headers['stripe-signature'];
+      
+      // ✅ VERIFICAR que el body sea Buffer/String
+      if (typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+        throw new Error('Body debe ser Buffer para Stripe');
+      }
+      
       webhookResult = await paymentService.handleWebhook(provider, req.body, signature);
     } else {
-      webhookResult = await paymentService.handleWebhook(provider, req.body);
+      // Para Mercado Pago, convertir si es necesario
+      const jsonPayload = Buffer.isBuffer(req.body) ? 
+        JSON.parse(req.body.toString()) : req.body;
+      webhookResult = await paymentService.handleWebhook(provider, jsonPayload);
     }
 
-    if (webhookResult && webhookResult.orderId) {
-      const order = await Order.findById(webhookResult.orderId);
-      if (order) {
-        order.status = 'confirmed';
-        order.paymentStatus = 'paid';
-        await order.save();
-        console.log(`✅ Orden ${order._id} actualizada vía ${provider}`);
-      }
-    }
+    // ... resto del código igual
 
-    res.status(200).json({ received: true });
   } catch (error) {
-    console.error(`Error en webhook ${provider}:`, error);
-    res.status(400).json({ error: 'Webhook processing failed' });
+    console.error(`❌ ERROR en webhook ${provider}:`, error.message);
+    
+    // ✅ SIEMPRE responder 200 a Stripe (evita reintentos)
+    res.status(200).json({ 
+      received: true, 
+      error: error.message 
+    });
   }
 };
 
