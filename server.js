@@ -8,7 +8,6 @@ const upload = require('./config/multer');
 const multer = require('multer');
 
 
-app.use('/api/webhooks', require('./routes/webhooks'));
 
 const app = express();
 
@@ -22,6 +21,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+app.use('/api/webhooks', require('./routes/webhooks'));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
