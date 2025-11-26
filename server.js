@@ -78,6 +78,8 @@ app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/cart', require('./routes/cart'));
 app.use('/api/sessions', require('./routes/sessions'));
+app.use('/api/payments', require('./routes/payments'));
+
 
 // Middleware para corregir URLs de imágenes en respuestas
 app.use((req, res, next) => {
