@@ -10,7 +10,7 @@ router.post('/webhook/:provider',
 router.get('/providers', paymentController.getPaymentProviders);
 router.post('/create-checkout', paymentController.createPaymentCheckout);
 
-rrouter.handleWebhookStripe = (req, res) => {
+router.handleWebhookStripe = (req, res) => {
   console.log('🔍 DEBUG WEBHOOK - INICIANDO');
   console.log('📦 Body type:', typeof req.body);
   console.log('📦 Body keys:', Object.keys(req.body));
