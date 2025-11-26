@@ -6,10 +6,15 @@ const path = require('path');
 require('dotenv').config();
 const upload = require('./config/multer');
 const multer = require('multer');
+const crypto = require('crypto');
 
 const app = express();
 
-// Middlewares
+// =============================================
+// 1. MIDDLEWARES CRÍTICOS - SIN PROCESAMIENTO DE BODY
+// =============================================
+
+// CORS configurado primero
 app.use(cors({
   origin: [
     'https://fashion-plus-frontend.vercel.app',
@@ -20,33 +25,63 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-// 🟢 WEBHOOK STRIPE - PRIMERO (RAW BODY)
-app.use('/api/payments/webhook/stripe', 
-  express.raw({type: 'application/json'}),
-  (req, res, next) => {
-    // Asegurar que el body se mantenga como Buffer
-    console.log('🔵 MIDDLEWARE - Body type:', typeof req.body);
-    console.log('🔵 MIDDLEWARE - Is Buffer:', Buffer.isBuffer(req.body));
-    next();
-  },
-  require('./routes/payments').handleWebhookStripe
+// =============================================
+// 2. WEBHOOKS - DEBEN ESTAR ANTES DE express.json()
+// =============================================
+
+// Webhook principal de Stripe
+app.post('/api/payments/webhook/stripe', 
+  express.raw({type: 'application/json'}), 
+  (req, res) => {
+    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const sig = req.headers['stripe-signature'];
+
+    console.log('🔵 Webhook recibido - Tipo:', req.headers['content-type']);
+    console.log('🔵 Body es Buffer:', Buffer.isBuffer(req.body));
+
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body, 
+        sig, 
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+      console.log('✅ Evento verificado:', event.type);
+    } catch (err) {
+      console.log('❌ Error de verificación:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Manejar eventos específicos
+    switch (event.type) {
+      case 'checkout.session.completed':
+        const session = event.data.object;
+        console.log('💰 Pago exitoso:', session.id);
+        // TODO: Actualizar base de datos
+        break;
+      case 'payment_intent.succeeded':
+        console.log('💳 PaymentIntent succeeded');
+        break;
+      default:
+        console.log(`🤷‍♀️ Evento no manejado: ${event.type}`);
+    }
+
+    res.json({received: true});
+  }
 );
 
-// ✅ LUEGO el resto de middlewares
+// =============================================
+// 3. MIDDLEWARES GENERALES
+// =============================================
+
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
 
-// Archivos estáticos (para compatibilidad con imágenes antiguas)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/images', express.static(path.join(__dirname, 'uploads')));
-
-app.use('/api/webhooks', require('./routes/webhooks'));
-
 // Middleware de sesión personalizado
 app.use((req, res, next) => {
   if (!req.cookies.client_session) {
-    const sessionId = require('crypto').randomBytes(16).toString('hex');
+    const sessionId = crypto.randomBytes(16).toString('hex');
     res.cookie('client_session', sessionId, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -60,40 +95,78 @@ app.use((req, res, next) => {
   next();
 });
 
-// Conexión a MongoDB
+// =============================================
+// 4. ARCHIVOS ESTÁTICOS
+// =============================================
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/images', express.static(path.join(__dirname, 'uploads')));
+
+// =============================================
+// 5. CONEXIÓN A LA BASE DE DATOS
+// =============================================
+
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('✅ Conectado a MongoDB'))
-  .catch(err => console.log('❌ Error de conexión:', err));
+  .catch(err => {
+    console.log('❌ Error de conexión a MongoDB:', err);
+    process.exit(1);
+  });
 
-// Ruta para subir imágenes a Cloudinary
-app.post('/api/upload', upload.single('image'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No se subió ninguna imagen' });
-    }
-    
-    // Cloudinary devuelve la URL automáticamente en req.file.path
-    const imageUrl = req.file.path;
-    
-    console.log('✅ Imagen subida a Cloudinary:', imageUrl);
-    
-    res.json({ 
-      success: true, 
-      imageUrl: imageUrl,
-      message: 'Imagen subida exitosamente a Cloudinary'
+// =============================================
+// 6. RUTAS DE LA API
+// =============================================
+
+// Ruta de upload (maneja Multer errors específicamente)
+app.post('/api/upload', 
+  (req, res, next) => {
+    upload.single('image')(req, res, (err) => {
+      if (err instanceof multer.MulterError) {
+        if (err.code === 'LIMIT_FILE_SIZE') {
+          return res.status(400).json({ error: 'El archivo es demasiado grande (máximo 5MB)' });
+        }
+        if (err.code === 'LIMIT_FILE_COUNT') {
+          return res.status(400).json({ error: 'Demasiados archivos' });
+        }
+        return res.status(400).json({ error: `Error de Multer: ${err.message}` });
+      } else if (err) {
+        return next(err);
+      }
+      next();
     });
-  } catch (error) {
-    console.error('❌ Error subiendo imagen:', error);
-    res.status(500).json({ error: 'Error al subir imagen' });
+  },
+  (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No se subió ninguna imagen' });
+      }
+      
+      const imageUrl = req.file.path;
+      console.log('✅ Imagen subida a Cloudinary:', imageUrl);
+      
+      res.json({ 
+        success: true, 
+        imageUrl: imageUrl,
+        message: 'Imagen subida exitosamente a Cloudinary'
+      });
+    } catch (error) {
+      console.error('❌ Error subiendo imagen:', error);
+      res.status(500).json({ error: 'Error al subir imagen' });
+    }
   }
-});
+);
 
-// Rutas API
+// Rutas API organizadas
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/cart', require('./routes/cart'));
 app.use('/api/sessions', require('./routes/sessions'));
+app.use('/api/webhooks', require('./routes/webhooks'));
+
+// =============================================
+// 7. MIDDLEWARE DE TRANSFORMACIÓN (OPCIONAL)
+// =============================================
 
 // Middleware para corregir URLs de imágenes en respuestas
 app.use((req, res, next) => {
@@ -141,36 +214,20 @@ app.use((req, res, next) => {
   next();
 });
 
-// Manejo de errores global
-app.use((error, req, res, next) => {
-  console.error('❌ Error global:', error);
-  
-  if (error instanceof multer.MulterError) {
-    if (error.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'El archivo es demasiado grande (máximo 5MB)' });
-    }
-    if (error.code === 'LIMIT_FILE_COUNT') {
-      return res.status(400).json({ error: 'Demasiados archivos' });
-    }
-  }
-  
-  res.status(500).json({ 
-    error: 'Error interno del servidor',
-    message: process.env.NODE_ENV === 'development' ? error.message : undefined
-  });
-});
+// =============================================
+// 8. RUTAS BÁSICAS
+// =============================================
 
-// Ruta de salud
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
-    cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configurado' : '❌ No configurado'
+    cloudinary: process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configurado' : '❌ No configurado',
+    stripe: process.env.STRIPE_SECRET_KEY ? '✅ Configurado' : '❌ No configurado'
   });
 });
 
-// Ruta raíz
 app.get('/', (req, res) => {
   res.json({ 
     message: '🚀 Fashion Plus Backend API',
@@ -180,15 +237,41 @@ app.get('/', (req, res) => {
       health: '/health',
       products: '/api/products',
       upload: '/api/upload',
-      docs: 'Por implementar'
+      stripe_webhook: '/api/stripe-webhook'
     }
   });
 });
+
+// =============================================
+// 9. MANEJO DE ERRORES GLOBAL
+// =============================================
+
+app.use((error, req, res, next) => {
+  console.error('❌ Error global:', error);
+  
+  res.status(500).json({ 
+    error: 'Error interno del servidor',
+    message: process.env.NODE_ENV === 'development' ? error.message : undefined
+  });
+});
+
+// Manejo de rutas no encontradas
+app.use('*', (req, res) => {
+  res.status(404).json({ 
+    error: 'Ruta no encontrada',
+    path: req.originalUrl
+  });
+});
+
+// =============================================
+// 10. INICIO DEL SERVIDOR
+// =============================================
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
   console.log(`🌐 Frontend: ${process.env.FRONTEND_URL || 'https://fashion-plus-frontend.vercel.app'}`);
   console.log(`☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configurado' : '❌ No configurado'}`);
+  console.log(`💳 Stripe: ${process.env.STRIPE_SECRET_KEY ? '✅ Configurado' : '❌ No configurado'}`);
   console.log(`📊 Entorno: ${process.env.NODE_ENV || 'development'}`);
 });
