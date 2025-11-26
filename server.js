@@ -21,7 +21,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
-app.use('/api/webhooks', require('./routes/webhooks'));
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -30,6 +29,8 @@ app.use(cookieParser());
 // Archivos estáticos (para compatibilidad con imágenes antiguas)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/images', express.static(path.join(__dirname, 'uploads')));
+
+app.use('/api/webhooks', require('./routes/webhooks'));
 
 // Middleware de sesión personalizado
 app.use((req, res, next) => {
