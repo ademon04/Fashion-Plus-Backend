@@ -12,31 +12,38 @@ router.post('/create-checkout', paymentController.createPaymentCheckout);
 
 router.handleWebhookStripe = (req, res) => {
   try {
-    console.log('🔍 DEBUG WEBHOOK - INICIANDO');
+    console.log('🎯 WEBHOOK STRIPE - PROCESANDO');
     console.log('📦 Body type:', typeof req.body);
     console.log('📦 Body keys:', Object.keys(req.body));
-    
-    // ✅ EL PROBLEMA: req.body es un objeto Buffer, no un Buffer crudo
-    // ✅ SOLUCIÓN: Crear un Buffer real desde los datos
-    let payload;
-    if (req.body.type === 'Buffer' && Array.isArray(req.body.data)) {
-      console.log('🔄 Convirtiendo objeto Buffer a Buffer real');
+
+    // Reconstruir el Buffer desde el objeto serializado
+    let payload = req.body;
+    if (req.body && req.body.type === 'Buffer' && Array.isArray(req.body.data)) {
+      console.log('🔧 Reconstruyendo Buffer desde datos serializados...');
       payload = Buffer.from(req.body.data);
+      console.log('📦 Buffer reconstruido - length:', payload.length);
+      console.log('📦 Is Buffer real:', Buffer.isBuffer(payload));
     } else {
-      payload = req.body;
+      // Si no es un objeto Buffer serializado, intentar convertirlo de otra forma
+      console.log('⚠️  El body no es un objeto Buffer serializado. Intentando convertir...');
+      if (typeof req.body === 'string') {
+        payload = Buffer.from(req.body);
+      } else if (typeof req.body === 'object') {
+        payload = Buffer.from(JSON.stringify(req.body));
+      } else {
+        payload = req.body;
+      }
     }
-    
-    console.log('📦 Payload type después:', typeof payload);
-    console.log('📦 Es Buffer real?', Buffer.isBuffer(payload));
-    console.log('🔐 Signature:', req.headers['stripe-signature']);
-    console.log('🔑 Secret configured:', !!process.env.STRIPE_WEBHOOK_SECRET);
 
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     const signature = req.headers['stripe-signature'];
     
-    // ✅ VERIFICACIÓN CON EL BUFFER REAL
+    console.log('🔐 Signature:', signature);
+    console.log('🔑 Secret starts with:', process.env.STRIPE_WEBHOOK_SECRET?.substring(0, 15) + '...');
+
+    // Verificación con el payload reconstruido
     const event = stripe.webhooks.constructEvent(
-      payload, // Ahora es un Buffer real
+      payload,
       signature,
       process.env.STRIPE_WEBHOOK_SECRET
     );

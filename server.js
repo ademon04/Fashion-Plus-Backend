@@ -23,6 +23,12 @@ app.use(cors({
 // 🟢 WEBHOOK STRIPE - PRIMERO (RAW BODY)
 app.use('/api/payments/webhook/stripe', 
   express.raw({type: 'application/json'}),
+  (req, res, next) => {
+    // Asegurar que el body se mantenga como Buffer
+    console.log('🔵 MIDDLEWARE - Body type:', typeof req.body);
+    console.log('🔵 MIDDLEWARE - Is Buffer:', Buffer.isBuffer(req.body));
+    next();
+  },
   require('./routes/payments').handleWebhookStripe
 );
 
