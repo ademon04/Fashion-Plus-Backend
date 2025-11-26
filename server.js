@@ -29,10 +29,10 @@ app.use(cors({
 // 2. WEBHOOKS - DEBEN ESTAR ANTES DE express.json()
 // =============================================
 
-// Webhook principal de Stripe
+// Webhook principal de Stripe - VERSIÓN FUSIONADA Y MEJORADA
 app.post('/api/payments/webhook/stripe', 
   express.raw({type: 'application/json'}), 
-  (req, res) => {
+  async (req, res) => {  // 👈 Agregar async aquí
     const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
     const sig = req.headers['stripe-signature'];
 
@@ -52,23 +52,152 @@ app.post('/api/payments/webhook/stripe',
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    // Manejar eventos específicos
-    switch (event.type) {
-      case 'checkout.session.completed':
-        const session = event.data.object;
-        console.log('💰 Pago exitoso:', session.id);
-        // TODO: Actualizar base de datos
-        break;
-      case 'payment_intent.succeeded':
-        console.log('💳 PaymentIntent succeeded');
-        break;
-      default:
-        console.log(`🤷‍♀️ Evento no manejado: ${event.type}`);
-    }
+    // 🔥 MANEJAR EVENTOS - VERSIÓN FUSIONADA
+    try {
+      switch (event.type) {
+        case 'checkout.session.completed':
+          const session = event.data.object;
+          console.log('💰 Checkout completado:', session.id);
+          
+          // Procesar la orden exitosa
+          await handleSuccessfulPayment(session);
+          break;
+          
+        case 'payment_intent.succeeded':
+          const paymentIntent = event.data.object;
+          console.log('💳 PaymentIntent succeeded:', paymentIntent.id);
+          // Aquí puedes manejar PaymentIntents directos si los usas
+          break;
+          
+        case 'payment_intent.payment_failed':
+          console.log('❌ Payment failed:', event.data.object.id);
+          break;
+          
+        default:
+          console.log(`⚡ Evento no manejado: ${event.type}`);
+      }
 
-    res.json({received: true});
-  }
+      // Responder a Stripe que recibimos el webhook correctamente
+      res.json({received: true, processed: true});
+      
+    } catch (error) {
+      console.error('❌ Error procesando evento del webhook:', error);
+      // Aún así respondemos a Stripe, pero con error
+      res.status(500).json({received: true, error: error.message});
+    }
+  }   
 );
+
+// 🔥 FUNCIÓN PARA MANEJAR PAGOS EXITOSOS - MEJORADA
+async function handleSuccessfulPayment(session) {
+  try {
+    console.log('📦 ===== PROCESANDO ORDEN EXITOSA =====');
+    console.log('👤 Cliente:', session.customer_details);
+    console.log('📮 Email:', session.customer_email);
+    console.log('💰 Total pagado:', `$${(session.amount_total / 100).toFixed(2)} MXN`);
+    console.log('🆔 Session ID:', session.id);
+    console.log('💳 Payment Intent:', session.payment_intent);
+    
+    // Extraer metadata
+    const metadata = session.metadata || {};
+    console.log('📋 Metadata:', metadata);
+    
+    // Extraer items del metadata (si los guardaste al crear la sesión)
+    let items = [];
+    if (metadata.items) {
+      try {
+        items = JSON.parse(metadata.items);
+        console.log('🛒 Items comprados:', items);
+      } catch (parseError) {
+        console.error('❌ Error parseando items del metadata:', parseError);
+      }
+    }
+    
+    // 🔥 AQUÍ VA TU LÓGICA DE NEGOCIO:
+    
+    // 1. CREAR LA ORDEN EN TU BASE DE DATOS
+    console.log('📝 Creando orden en la base de datos...');
+    
+    const orderData = {
+      sessionId: session.id,
+      paymentIntent: session.payment_intent,
+      customer: {
+        name: session.customer_details?.name || metadata.customer_name,
+        email: session.customer_email,
+        phone: session.customer_details?.phone || metadata.customer_phone,
+      },
+      shippingAddress: session.shipping_details?.address || metadata.shipping_address,
+      items: items,
+      total: session.amount_total / 100, // Convertir de centavos a pesos
+      currency: session.currency,
+      status: 'paid',
+      paymentMethod: 'stripe'
+    };
+    
+    // Aquí llamas a tu función para guardar en MongoDB
+    // await saveOrderToDatabase(orderData);
+    console.log('✅ Orden guardada en base de datos');
+    
+    // 2. ACTUALIZAR INVENTARIO
+    console.log('📊 Actualizando inventario...');
+    for (const item of items) {
+      // await updateProductStock(item.product, item.size, item.quantity);
+      console.log(`   - Producto ${item.product}, talla ${item.size}: -${item.quantity}`);
+    }
+    
+    // 3. ENVIAR EMAIL DE CONFIRMACIÓN (opcional)
+    console.log('📧 Enviando email de confirmación...');
+    // await sendConfirmationEmail(session.customer_email, orderData);
+    
+    // 4. LIMPIAR CARRITO (si guardas carritos en BD)
+    console.log('🛒 Limpiando carrito del usuario...');
+    // Si usas carritos basados en sesión, podrías limpiarlos aquí
+    
+    console.log('🎉 ¡Orden procesada exitosamente!');
+    
+  } catch (error) {
+    console.error('❌ Error en handleSuccessfulPayment:', error);
+    // IMPORTANTE: No lanzar el error aquí para no afectar la respuesta del webhook
+    // Pero podrías registrar el error en una base de datos para reintentos
+  }
+}
+
+// 🔥 FUNCIÓN AUXILIAR PARA GUARDAR ORDEN (ejemplo)
+async function saveOrderToDatabase(orderData) {
+  // Aquí implementas la lógica para guardar en tu base de datos
+  // Usando tu modelo de Order de Mongoose
+  /*
+  const order = new Order({
+    orderNumber: generarOrderNumber(),
+    customer: orderData.customer,
+    items: orderData.items,
+    total: orderData.total,
+    status: 'completed',
+    paymentMethod: 'stripe',
+    paymentId: orderData.paymentIntent,
+    shippingAddress: orderData.shippingAddress
+  });
+  
+  await order.save();
+  return order;
+  */
+}
+
+// 🔥 FUNCIÓN AUXILIAR PARA ACTUALIZAR INVENTARIO (ejemplo)
+async function updateProductStock(productId, size, quantity) {
+  // Aquí implementas la lógica para actualizar el stock
+  /*
+  await Product.findOneAndUpdate(
+    { 
+      _id: productId, 
+      'sizes.size': size 
+    },
+    { 
+      $inc: { 'sizes.$.stock': -quantity } 
+    }
+  );
+  */
+}
 
 // =============================================
 // 3. MIDDLEWARES GENERALES
@@ -163,6 +292,8 @@ app.use('/api/orders', require('./routes/orders'));
 app.use('/api/cart', require('./routes/cart'));
 app.use('/api/sessions', require('./routes/sessions'));
 app.use('/api/webhooks', require('./routes/webhooks'));
+app.use('/api/payments', require('./routes/payments'));
+
 
 // =============================================
 // 7. MIDDLEWARE DE TRANSFORMACIÓN (OPCIONAL)
