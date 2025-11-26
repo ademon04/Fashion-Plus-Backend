@@ -7,6 +7,9 @@ require('dotenv').config();
 const upload = require('./config/multer');
 const multer = require('multer');
 
+
+app.use('/api/webhooks', require('./routes/webhooks'));
+
 const app = express();
 
 // Middlewares
