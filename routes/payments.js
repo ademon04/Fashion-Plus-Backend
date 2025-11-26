@@ -10,45 +10,19 @@ router.post('/webhook/:provider',
 router.get('/providers', paymentController.getPaymentProviders);
 router.post('/create-checkout', paymentController.createPaymentCheckout);
 
-router.handleWebhookStripe = (req, res) => {
-  try {
-    console.log('🟢 HANDLE WEBHOOK STRIPE - Body type:', typeof req.body);
-    console.log('🟢 HANDLE WEBHOOK STRIPE - Is Buffer:', Buffer.isBuffer(req.body));
-    
-    // ✅ Asegurar que el body sea Buffer
-    let payload = req.body;
-    if (!Buffer.isBuffer(payload)) {
-      console.log('⚠️  Convertiendo body a Buffer');
-      payload = Buffer.from(JSON.stringify(payload));
-    }
-    
-    console.log('🟢 PAYLOAD length:', payload.length);
-    
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-    const signature = req.headers['stripe-signature'];
-    
-    console.log('🟢 SIGNATURE:', signature ? 'PRESENTE' : 'FALTANTE');
-    console.log('🟢 WEBHOOK SECRET:', process.env.STRIPE_WEBHOOK_SECRET ? 'CONFIGURADO' : 'FALTANTE');
-    
-    // ✅ Verificar webhook con el payload correcto
-    const event = stripe.webhooks.constructEvent(
-      payload,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-    
-    console.log('✅ EVENTO VERIFICADO:', event.type);
-    
-    // ✅ Llamar al controller con el evento verificado
-    req.params = { provider: 'stripe' };
-    req.body = event;
-    
-    return paymentController.handlePaymentWebhook(req, res);
-    
-  } catch (error) {
-    console.error('❌ ERROR en handleWebhookStripe:', error.message);
-    return res.status(400).json({ error: error.message });
+rrouter.handleWebhookStripe = (req, res) => {
+  console.log('🔍 DEBUG WEBHOOK - INICIANDO');
+  console.log('📦 Body type:', typeof req.body);
+  console.log('📦 Body keys:', Object.keys(req.body));
+  console.log('📦 Body sample:', JSON.stringify(req.body).substring(0, 200));
+  console.log('🔐 Signature:', req.headers['stripe-signature']);
+  console.log('🔑 Secret configured:', !!process.env.STRIPE_WEBHOOK_SECRET);
+  
+  // Solo para debugging - mostrar el secret (oculto)
+  if (process.env.STRIPE_WEBHOOK_SECRET) {
+    console.log('🔑 Secret starts with:', process.env.STRIPE_WEBHOOK_SECRET.substring(0, 10) + '...');
   }
+  
+  res.json({ testing: true, bodyType: typeof req.body });
 };
-
 module.exports = router;
