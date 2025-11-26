@@ -1,10 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/paymentController');
-const { auth } = require('../middleware/auth');
+
+router.post('/webhook/:provider', 
+  express.raw({type: 'application/json'}), 
+  paymentController.handlePaymentWebhook
+);
 
 router.get('/providers', paymentController.getPaymentProviders);
-router.post('/create-checkout', auth, paymentController.createPaymentCheckout);
-router.post('/webhook/:provider', paymentController.handlePaymentWebhook);
+router.post('/create-checkout', paymentController.createPaymentCheckout);
 
 module.exports = router;
