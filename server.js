@@ -7,8 +7,6 @@ require('dotenv').config();
 const upload = require('./config/multer');
 const multer = require('multer');
 
-
-
 const app = express();
 
 // Middlewares
@@ -22,6 +20,13 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
+// 🟢 WEBHOOK STRIPE - PRIMERO (RAW BODY)
+app.use('/api/payments/webhook/stripe', 
+  express.raw({type: 'application/json'}),
+  require('./routes/payments').handleWebhookStripe
+);
+
+// ✅ LUEGO el resto de middlewares
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(cookieParser());
@@ -76,17 +81,13 @@ app.post('/api/upload', upload.single('image'), (req, res) => {
     res.status(500).json({ error: 'Error al subir imagen' });
   }
 });
-app.use('/api/payments/webhook/stripe', 
-  express.raw({type: 'application/json'}),
-  require('./routes/payments').handleWebhookStripe // Ruta específica
-);
+
 // Rutas API
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/products', require('./routes/products'));
 app.use('/api/orders', require('./routes/orders'));
 app.use('/api/cart', require('./routes/cart'));
 app.use('/api/sessions', require('./routes/sessions'));
-
 
 // Middleware para corregir URLs de imágenes en respuestas
 app.use((req, res, next) => {
