@@ -50,194 +50,66 @@ exports.getProductById = async (req, res) => {
 // ======================================================
 // CREATE PRODUCT CORREGIDO - URLs CLOUDINARY
 // ======================================================
+// 📁 backend/controllers/productController.js - Agrega esto en createProduct
 exports.createProduct = async (req, res) => {
   try {
-    console.log("======================================");
-    console.log("🛒 NUEVO PRODUCTO RECIBIDO");
-    console.log("📥 Body original:", req.body);
-    console.log("📸 Archivos recibidos:", req.files);
-
-    // DEBUG: Mostrar información COMPLETA de los archivos
-    if (req.files) {
-      console.log("🔍 DEBUG - Info completa de archivos:");
-      req.files.forEach((file, index) => {
-        console.log(`   📁 Archivo ${index + 1}:`);
-        console.log(`      - fieldname: ${file.fieldname}`);
-        console.log(`      - originalname: ${file.originalname}`);
-        console.log(`      - filename: ${file.filename}`);
-        console.log(`      - path: ${file.path}`); // ✅ ESTA ES LA URL DE CLOUDINARY
-        console.log(`      - size: ${file.size}`);
-        console.log(`      - mimetype: ${file.mimetype}`);
-      });
+    console.log("🛒 CREANDO PRODUCTO - DEBUG COMPLETO:");
+    console.log("📁 Archivo completo:", JSON.stringify(req.file, null, 2));
+    
+    if (!req.file) {
+      return res.status(400).json({ error: "No se recibió imagen" });
     }
 
-    // Extraer y limpiar datos
-    let { name, description, price, originalPrice, category, subcategory, sizes, onSale, featured } = req.body;
+    // 🚨 VER QUÉ ESTÁ DEVOLVIENDO CLOUDINARY
+    console.log("🔍 CLOUDINARY DEBUG:");
+    console.log("   - filename:", req.file.filename);
+    console.log("   - path:", req.file.path);
+    console.log("   - originalname:", req.file.originalname);
+    console.log("   - fieldname:", req.file.fieldname);
+    console.log("   - size:", req.file.size);
+    console.log("   - mimetype:", req.file.mimetype);
 
-    // ✅ CORRECCIÓN COMPLETA: Procesamiento robusto de featured
-    let featuredValue = false;
-    if (featured !== undefined && featured !== null) {
-      if (typeof featured === 'string') {
-        featuredValue = (featured.toLowerCase() === 'true' || featured === '1');
-      } else if (typeof featured === 'boolean') {
-        featuredValue = featured;
-      } else if (typeof featured === 'number') {
-        featuredValue = Boolean(featured);
-      }
+    const { name, price, description, category, subcategory, sizes, onSale, featured } = req.body;
+
+    // 🚨 PRUEBA DIFERENTES FORMATOS
+    const images = [];
+    
+    // Opción 1: Usar solo el filename (public_id)
+    images.push(`/uploads/${req.file.filename}`);
+    
+    // Opción 2: Si path es URL de Cloudinary, usarla
+    if (req.file.path && req.file.path.includes('cloudinary.com')) {
+      images.push(req.file.path);
     }
     
-    console.log("🔍 DEBUG - Featured procesado:", {
-      original: featured,
-      tipoOriginal: typeof featured,
-      procesado: featuredValue,
-      tipoProcesado: typeof featuredValue
-    });
+    // Opción 3: Construir URL manualmente
+    images.push(`https://res.cloudinary.com/dzxrcak6k/image/upload/${req.file.filename}`);
 
-    // Convertir a tipos correctos
-    price = Number(price);
-    originalPrice = originalPrice ? Number(originalPrice) : 0;
-    onSale = onSale === 'true';
+    console.log("🎯 URLs a guardar:", images);
 
-    // category y subcategory como string plano
-    category = String(category).trim();
-    subcategory = String(subcategory).trim();
-
-    // sizes viene como JSON string desde FormData → parse
-    let parsedSizes = [];
-    if (sizes) {
-      try {
-        parsedSizes = JSON.parse(sizes);
-        console.log("🔍 DEBUG - Sizes parseados:", parsedSizes);
-      } catch (e) {
-        console.error("❌ ERROR parseando sizes:", e);
-        parsedSizes = [];
-      }
-    }
-
-    // 🚨 CORRECCIÓN CRÍTICA: Usar URLs de Cloudinary en lugar de rutas locales,,,
-const images = req.files?.map(file => {
-  if (file.filename) {
-    return `/uploads/${file.filename}`; // Solo el public_id
-  }
-  return '';
-}).filter(img => img) || [];
-    // 🔥 GENERAR SKU AUTOMÁTICO
-    const generateSKU = () => {
-      const categoryCode = category ? category.substring(0, 3).toUpperCase() : 'GEN';
-      const timestamp = Date.now().toString(36).toUpperCase();
-      const random = Math.random().toString(36).substr(2, 4).toUpperCase();
-      return `${categoryCode}-${timestamp}-${random}`;
-    };
-
-    const sku = generateSKU();
-
-    // ✅ CREAR PRODUCTO CON IMÁGENES CORREGIDAS
     const productData = {
-      name,
-      description,
-      price,
-      originalPrice,
-      category,
-      subcategory,
-      sizes: parsedSizes,
-      onSale,
-      featured: featuredValue, // ✅ USAR EL VALOR CORREGIDO
-      images, // ✅ AHORA CON URLs DE CLOUDINARY
-      sku
+      name: name.trim(),
+      description: (description || "").trim(),
+      price: parseFloat(price),
+      originalPrice: 0,
+      category: category.trim(),
+      subcategory: (subcategory || "").trim(),
+      sizes: JSON.parse(sizes || '[]'),
+      onSale: onSale === 'true',
+      featured: featured === 'true',
+      images: images, // 🚨 GUARDAR TODAS LAS OPCIONES
+      sku: `SKU-${Date.now()}`
     };
-
-    console.log("🔍 DEBUG - Datos finales del producto:", productData);
 
     const product = new Product(productData);
     await product.save();
 
-    console.log("✅ Producto creado correctamente");
-    console.log("📦 Producto guardado:", {
-      _id: product._id,
-      name: product.name,
-      featured: product.featured,
-      images: product.images, // ✅ DEBERÍAN SER URLs DE CLOUDINARY
-      sku: product.sku
-    });
-
-    res.status(201).json(product);
+    console.log("✅ PRODUCTO CREADO - URLs guardadas:", product.images);
+    res.status(201).json({ success: true, product });
 
   } catch (error) {
-    console.error("❌ ERROR CREANDO PRODUCTO:", error);
-    res.status(400).json({ error: error.message });
-  }
-};
-
-// ======================================================
-// UPDATE PRODUCT + NUEVAS IMÁGENES + NORMALIZACIÓN + FEATURED
-// ======================================================
-exports.updateProduct = async (req, res) => {
-  try {
-    console.log("🔄 ACTUALIZANDO PRODUCTO:", req.params.id);
-    console.log("📥 Datos recibidos:", req.body);
-
-    const updateData = { ...req.body };
-
-    // ✅ CORRECCIÓN: Procesar featured igual que en create
-    if (updateData.featured !== undefined && updateData.featured !== null) {
-      if (typeof updateData.featured === 'string') {
-        updateData.featured = (updateData.featured.toLowerCase() === 'true' || updateData.featured === '1');
-      } else if (typeof updateData.featured === 'boolean') {
-        updateData.featured = updateData.featured;
-      } else if (typeof updateData.featured === 'number') {
-        updateData.featured = Boolean(updateData.featured);
-      }
-    }
-
-    // Normalizar categoría y subcategoría si llegan
-    if (updateData.category) {
-      updateData.category = normalize(updateData.category);
-    }
-
-    if (updateData.subcategory) {
-      updateData.subcategory = normalize(updateData.subcategory);
-    }
-
-    // Convertir onSale a booleano si viene
-    if (updateData.onSale !== undefined) {
-      updateData.onSale = updateData.onSale === 'true';
-    }
-
-    // Nuevas imágenes (si las mandan)
-    if (req.files && req.files.length > 0) {
-      updateData.images = req.files.map(file => `/uploads/${file.filename}`);
-    }
-
-    // Asegurar JSON válido para sizes
-    if (updateData.sizes) {
-      try {
-        updateData.sizes = JSON.parse(updateData.sizes);
-      } catch (e) {
-        console.error("❌ ERROR parseando sizes en update:", e);
-      }
-    }
-
-    console.log("🔍 DEBUG - Update data procesado:", updateData);
-
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true, runValidators: true }
-    );
-
-    if (!product) {
-      return res.status(404).json({ error: "Producto no encontrado" });
-    }
-
-    console.log("✅ Producto actualizado - Featured:", product.featured);
-    return res.json({
-      message: "Producto actualizado",
-      product
-    });
-
-  } catch (error) {
-    console.error("Error en updateProduct:", error);
-    res.status(400).json({ error: error.message });
+    console.error("❌ ERROR:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
   }
 };
 
