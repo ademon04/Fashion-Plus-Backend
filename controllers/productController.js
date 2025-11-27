@@ -48,20 +48,28 @@ exports.getProductById = async (req, res) => {
 };
 
 // ======================================================
-// CREATE PRODUCT + IMAGENES + SKU AUTOMÁTICO + FEATURED
+// CREATE PRODUCT CORREGIDO - URLs CLOUDINARY
 // ======================================================
 exports.createProduct = async (req, res) => {
   try {
     console.log("======================================");
     console.log("🛒 NUEVO PRODUCTO RECIBIDO");
     console.log("📥 Body original:", req.body);
-    console.log("📸 Archivos recibidos:", req.files?.map(f => f.filename));
+    console.log("📸 Archivos recibidos:", req.files);
 
-    // DEBUG: Mostrar todos los campos recibidos
-    console.log("🔍 DEBUG - Campos recibidos:");
-    Object.keys(req.body).forEach(key => {
-      console.log(`   ${key}:`, req.body[key], `(type: ${typeof req.body[key]})`);
-    });
+    // DEBUG: Mostrar información COMPLETA de los archivos
+    if (req.files) {
+      console.log("🔍 DEBUG - Info completa de archivos:");
+      req.files.forEach((file, index) => {
+        console.log(`   📁 Archivo ${index + 1}:`);
+        console.log(`      - fieldname: ${file.fieldname}`);
+        console.log(`      - originalname: ${file.originalname}`);
+        console.log(`      - filename: ${file.filename}`);
+        console.log(`      - path: ${file.path}`); // ✅ ESTA ES LA URL DE CLOUDINARY
+        console.log(`      - size: ${file.size}`);
+        console.log(`      - mimetype: ${file.mimetype}`);
+      });
+    }
 
     // Extraer y limpiar datos
     let { name, description, price, originalPrice, category, subcategory, sizes, onSale, featured } = req.body;
@@ -106,8 +114,20 @@ exports.createProduct = async (req, res) => {
       }
     }
 
-    // Imágenes subidas
-    const images = req.files?.map(f => `/uploads/${f.filename}`) || [];
+    // 🚨 CORRECCIÓN CRÍTICA: Usar URLs de Cloudinary en lugar de rutas locales
+    const images = req.files?.map(file => {
+      // ✅ file.path contiene la URL COMPLETA de Cloudinary
+      if (file.path && file.path.includes('cloudinary.com')) {
+        console.log(`✅ URL Cloudinary encontrada: ${file.path}`);
+        return file.path;
+      } else {
+        console.log(`❌ Archivo sin URL Cloudinary:`, file);
+        // Fallback: construir URL manualmente si es necesario
+        return `/uploads/${file.filename}`;
+      }
+    }) || [];
+
+    console.log("🔍 DEBUG - URLs de imágenes a guardar:", images);
 
     // 🔥 GENERAR SKU AUTOMÁTICO
     const generateSKU = () => {
@@ -119,7 +139,7 @@ exports.createProduct = async (req, res) => {
 
     const sku = generateSKU();
 
-    // ✅ CREAR PRODUCTO CON FEATURED CORREGIDO
+    // ✅ CREAR PRODUCTO CON IMÁGENES CORREGIDAS
     const productData = {
       name,
       description,
@@ -129,8 +149,8 @@ exports.createProduct = async (req, res) => {
       subcategory,
       sizes: parsedSizes,
       onSale,
-      featured, // ✅ USAR EL VALOR CORREGIDO
-      images,
+      featured: featuredValue, // ✅ USAR EL VALOR CORREGIDO
+      images, // ✅ AHORA CON URLs DE CLOUDINARY
       sku
     };
 
@@ -144,6 +164,7 @@ exports.createProduct = async (req, res) => {
       _id: product._id,
       name: product.name,
       featured: product.featured,
+      images: product.images, // ✅ DEBERÍAN SER URLs DE CLOUDINARY
       sku: product.sku
     });
 
