@@ -51,41 +51,24 @@ exports.getProductById = async (req, res) => {
 // CREATE PRODUCT CORREGIDO - URLs CLOUDINARY
 // ======================================================
 // 📁 backend/controllers/productController.js - Agrega esto en createProduct
+// 📁 backend/controllers/productController.js - CORREGIDO
 exports.createProduct = async (req, res) => {
   try {
-    console.log("🛒 CREANDO PRODUCTO - DEBUG COMPLETO:");
-    console.log("📁 Archivo completo:", JSON.stringify(req.file, null, 2));
+    console.log("🎯 CREATE PRODUCT - Iniciando");
     
     if (!req.file) {
+      console.log("❌ No hay archivo");
       return res.status(400).json({ error: "No se recibió imagen" });
     }
 
-    // 🚨 VER QUÉ ESTÁ DEVOLVIENDO CLOUDINARY
-    console.log("🔍 CLOUDINARY DEBUG:");
-    console.log("   - filename:", req.file.filename);
-    console.log("   - path:", req.file.path);
-    console.log("   - originalname:", req.file.originalname);
-    console.log("   - fieldname:", req.file.fieldname);
-    console.log("   - size:", req.file.size);
-    console.log("   - mimetype:", req.file.mimetype);
+    console.log("📁 Archivo recibido:", req.file);
 
     const { name, price, description, category, subcategory, sizes, onSale, featured } = req.body;
 
-    // 🚨 PRUEBA DIFERENTES FORMATOS
-    const image = [];
+    // 🚨 CORRECCIÓN CRÍTICA: Guardar SOLO el public_id, NO URL completa
+    const images = [`/uploads/${req.file.filename}`]; // ← Solo el public_id
     
-    // Opción 1: Usar solo el filename (public_id)
-    image.push(`/uploads/${req.file.filename}`);
-    
-    // Opción 2: Si path es URL de Cloudinary, usarla
-    if (req.file.path && req.file.path.includes('cloudinary.com')) {
-      image.push(req.file.path);
-    }
-    
-    // Opción 3: Construir URL manualmente
-    image.push(`https://res.cloudinary.com/dzxrcak6k/image/upload/${req.file.filename}`);
-
-    console.log("🎯 URLs a guardar:", image);
+    console.log("📸 Imágenes a guardar:", images);
 
     const productData = {
       name: name.trim(),
@@ -97,22 +80,29 @@ exports.createProduct = async (req, res) => {
       sizes: JSON.parse(sizes || '[]'),
       onSale: onSale === 'true',
       featured: featured === 'true',
-      image: image, // 🚨 GUARDAR TODAS LAS OPCIONES
+      images: images, // ← Esto debería ser: ["/uploads/fashion-plus/product-xxx"]
       sku: `SKU-${Date.now()}`
     };
 
     const product = new Product(productData);
     await product.save();
 
-    console.log("✅ PRODUCTO CREADO - URLs guardadas:", product.image);
-    res.status(201).json({ success: true, product });
+    console.log("✅ PRODUCTO CREADO EXITOSAMENTE");
+    console.log("📦 URLs guardadas en BD:", product.images);
+    
+    res.status(201).json({ 
+      success: true, 
+      product: product 
+    });
 
   } catch (error) {
-    console.error("❌ ERROR:", error);
-    res.status(500).json({ error: "Error interno del servidor" });
+    console.error("❌ ERROR EN CREATE PRODUCT:", error);
+    res.status(500).json({ 
+      error: "Error interno del servidor",
+      details: error.message 
+    });
   }
 };
-
 // ======================================================
 // DELETE PRODUCT
 // ======================================================
