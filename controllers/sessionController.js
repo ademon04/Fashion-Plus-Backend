@@ -14,7 +14,7 @@ exports.createSession = async (req, res) => {
 exports.getSession = async (req, res) => {
   try {
     const session = await Session.findOne({ sessionId: req.params.id })
-      .populate('cart.productId', 'name price images sizes');
+      .populate('cart.productId', 'name price image sizes');
     
     if (!session) return res.status(404).json({ error: 'Sesión no encontrada' });
     res.json(session);
@@ -29,7 +29,7 @@ exports.updateSessionCart = async (req, res) => {
       { sessionId: req.params.id },
       { cart: req.body.cart },
       { new: true }
-    ).populate('cart.productId', 'name price images sizes');
+    ).populate('cart.productId', 'name price image sizes');
     
     res.json(session);
   } catch (error) {

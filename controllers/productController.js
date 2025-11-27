@@ -72,20 +72,20 @@ exports.createProduct = async (req, res) => {
     const { name, price, description, category, subcategory, sizes, onSale, featured } = req.body;
 
     // 🚨 PRUEBA DIFERENTES FORMATOS
-    const images = [];
+    const image = [];
     
     // Opción 1: Usar solo el filename (public_id)
-    images.push(`/uploads/${req.file.filename}`);
+    image.push(`/uploads/${req.file.filename}`);
     
     // Opción 2: Si path es URL de Cloudinary, usarla
     if (req.file.path && req.file.path.includes('cloudinary.com')) {
-      images.push(req.file.path);
+      image.push(req.file.path);
     }
     
     // Opción 3: Construir URL manualmente
-    images.push(`https://res.cloudinary.com/dzxrcak6k/image/upload/${req.file.filename}`);
+    image.push(`https://res.cloudinary.com/dzxrcak6k/image/upload/${req.file.filename}`);
 
-    console.log("🎯 URLs a guardar:", images);
+    console.log("🎯 URLs a guardar:", image);
 
     const productData = {
       name: name.trim(),
@@ -97,14 +97,14 @@ exports.createProduct = async (req, res) => {
       sizes: JSON.parse(sizes || '[]'),
       onSale: onSale === 'true',
       featured: featured === 'true',
-      images: images, // 🚨 GUARDAR TODAS LAS OPCIONES
+      image: image, // 🚨 GUARDAR TODAS LAS OPCIONES
       sku: `SKU-${Date.now()}`
     };
 
     const product = new Product(productData);
     await product.save();
 
-    console.log("✅ PRODUCTO CREADO - URLs guardadas:", product.images);
+    console.log("✅ PRODUCTO CREADO - URLs guardadas:", product.image);
     res.status(201).json({ success: true, product });
 
   } catch (error) {

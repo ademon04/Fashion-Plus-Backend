@@ -319,7 +319,7 @@ exports.getOrders = async (req, res) => {
       limit: parseInt(limit),
       sort: { createdAt: -1 },
       populate: [
-        { path: "items.product", select: "name images" },
+        { path: "items.product", select: "name image" },
         { path: "user", select: "name email" }
       ]
     };
@@ -351,7 +351,7 @@ exports.getOrders = async (req, res) => {
 exports.getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate("items.product", "name images price")
+      .populate("items.product", "name image price")
       .populate("user", "name email");
 
     if (!order) {
@@ -398,7 +398,7 @@ exports.updateOrderStatus = async (req, res) => {
       },
       { new: true }
     )
-      .populate("items.product", "name images")
+      .populate("items.product", "name image")
       .populate("user", "name email");
 
     if (!order) {
@@ -469,7 +469,7 @@ exports.getMyOrders = async (req, res) => {
       sort: { createdAt: -1 },
       populate: {
         path: "items.product",
-        select: "name images"
+        select: "name image"
       }
     };
 

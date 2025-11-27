@@ -229,7 +229,7 @@ app.use((req, res, next) => {
 // =============================================
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/images', express.static(path.join(__dirname, 'uploads')));
+app.use('/image', express.static(path.join(__dirname, 'uploads')));
 
 // =============================================
 // 5. CONEXIÓN A LA BASE DE DATOS
@@ -313,7 +313,7 @@ app.use((req, res, next) => {
             } else if (obj && typeof obj === 'object') {
               const newObj = { ...obj };
               for (const key in newObj) {
-                if (key === 'images' || key === 'image') {
+                if (key === 'image' || key === 'image') {
                   if (Array.isArray(newObj[key])) {
                     newObj[key] = newObj[key].map(img => {
                       if (img && img.startsWith('/uploads')) {
