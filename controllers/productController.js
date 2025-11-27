@@ -1,132 +1,229 @@
+// 📁 backend/controllers/productController.js
 const Product = require('../models/Product');
 
-// Función para normalizar texto (quitar espacios, poner minúsculas)
-const normalize = (value) => {
-  if (!value) return value;
-  return value.toString().trim().toLowerCase();
-};
-
-// ======================================================
-// GET ALL PRODUCTS
-// ======================================================
-exports.getAllProducts = async (req, res) => {
-  try {
-    const { category, subcategory, onSale, featured } = req.query;
-    let filter = { active: true };
-
-    if (category) filter.category = normalize(category);
-    if (subcategory) filter.subcategory = normalize(subcategory);
-    if (onSale) filter.onSale = onSale === 'true';
-    if (featured) filter.featured = featured === 'true';
-
-    const products = await Product.find(filter);
-    res.json(products);
-
-  } catch (error) {
-    console.error("Error en getAllProducts:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// ======================================================
-// GET PRODUCT BY ID
-// ======================================================
-exports.getProductById = async (req, res) => {
-  try {
-    const product = await Product.findById(req.params.id);
-
-    if (!product) {
-      return res.status(404).json({ error: "Producto no encontrado" });
-    }
-
-    res.json(product);
-
-  } catch (error) {
-    console.error("Error en getProductById:", error);
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// ======================================================
-// CREATE PRODUCT CORREGIDO - URLs CLOUDINARY
-// ======================================================
-// 📁 backend/controllers/productController.js - Agrega esto en createProduct
-// 📁 backend/controllers/productController.js - CORREGIDO
 exports.createProduct = async (req, res) => {
   try {
     console.log("🎯 CREATE PRODUCT - Iniciando");
-    
+    console.log("📁 Archivo recibido:", req.file);
+    console.log("📝 Body recibido:", req.body);
+
+    // 🚨 VALIDACIÓN MEJORADA
     if (!req.file) {
-      console.log("❌ No hay archivo");
-      return res.status(400).json({ error: "No se recibió imagen" });
+      console.log("❌ No se recibió archivo de imagen");
+      return res.status(400).json({ 
+        success: false,
+        error: "No se recibió imagen. Por favor selecciona una imagen." 
+      });
     }
 
-    console.log("📁 Archivo recibido:", req.file);
+    const { 
+      name, 
+      price, 
+      description = "", 
+      category, 
+      subcategory = "", 
+      sizes = "[]", 
+      onSale = "false", 
+      featured = "false" 
+    } = req.body;
 
-    const { name, price, description, category, subcategory, sizes, onSale, featured } = req.body;
+    // 🚨 VALIDACIÓN DE CAMPOS OBLIGATORIOS
+    if (!name || !name.trim()) {
+      return res.status(400).json({ 
+        success: false,
+        error: "El nombre del producto es obligatorio" 
+      });
+    }
 
-    // 🚨 CORRECCIÓN CRÍTICA: Guardar SOLO el public_id, NO URL completa
-    const images = [`/uploads/${req.file.filename}`]; // ← Solo el public_id
-    
-    console.log("📸 Imágenes a guardar:", images);
+    if (!price || isNaN(parseFloat(price))) {
+      return res.status(400).json({ 
+        success: false,
+        error: "El precio debe ser un número válido" 
+      });
+    }
 
+    if (!category || !category.trim()) {
+      return res.status(400).json({ 
+        success: false,
+        error: "La categoría es obligatoria" 
+      });
+    }
+
+    // 🚨 PROCESAMIENTO SEGURO DE DATOS
     const productData = {
       name: name.trim(),
-      description: (description || "").trim(),
+      description: description.trim(),
       price: parseFloat(price),
       originalPrice: 0,
       category: category.trim(),
-      subcategory: (subcategory || "").trim(),
-      sizes: JSON.parse(sizes || '[]'),
+      subcategory: subcategory.trim(),
       onSale: onSale === 'true',
       featured: featured === 'true',
-      images: images, // ← Esto debería ser: ["/uploads/fashion-plus/product-xxx"]
-      sku: `SKU-${Date.now()}`
+      images: [`/uploads/${req.file.filename}`], // Solo public_id
+      sku: `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
     };
 
+    // 🚨 PROCESAMIENTO SEGURO DE TALLAS
+    try {
+      productData.sizes = JSON.parse(sizes || '[]');
+    } catch (parseError) {
+      console.log("⚠️ Error parseando sizes, usando array vacío");
+      productData.sizes = [];
+    }
+
+    console.log("📦 Datos del producto a guardar:", productData);
+
+    // 🚨 CREACIÓN DEL PRODUCTO
     const product = new Product(productData);
     await product.save();
 
     console.log("✅ PRODUCTO CREADO EXITOSAMENTE");
-    console.log("📦 URLs guardadas en BD:", product.images);
-    
-    res.status(201).json({ 
-      success: true, 
-      product: product 
+    console.log("🆔 ID:", product._id);
+    console.log("📸 Imágenes guardadas:", product.images);
+
+    res.status(201).json({
+      success: true,
+      message: "Producto creado correctamente",
+      product: product
     });
 
   } catch (error) {
-    console.error("❌ ERROR EN CREATE PRODUCT:", error);
-    res.status(500).json({ 
-      error: "Error interno del servidor",
-      details: error.message 
+    console.error("❌ ERROR CRÍTICO EN CREATE PRODUCT:", error);
+    
+    // 🚨 ERRORES ESPECÍFICOS DE MONGOOSE
+    if (error.name === 'ValidationError') {
+      const errors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        error: "Error de validación: " + errors.join(', ')
+      });
+    }
+
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        error: "El SKU ya existe"
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: "Error interno del servidor al crear producto",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
     });
   }
 };
-// ======================================================
-// DELETE PRODUCT
-// ======================================================
+
+exports.getAllProducts = async (req, res) => {
+  try {
+    const products = await Product.find({});
+    console.log(`📦 Obteniendo ${products.length} productos`);
+    res.json(products);
+  } catch (error) {
+    console.error("❌ Error obteniendo productos:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Error obteniendo productos" 
+    });
+  }
+};
+
+exports.getFeaturedProducts = async (req, res) => {
+  try {
+    const products = await Product.find({ featured: true });
+    console.log(`⭐ Obteniendo ${products.length} productos destacados`);
+    res.json(products);
+  } catch (error) {
+    console.error("❌ Error obteniendo productos destacados:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Error obteniendo productos destacados" 
+    });
+  }
+};
+
+exports.getProductById = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      console.log("❌ Producto no encontrado:", req.params.id);
+      return res.status(404).json({ 
+        success: false,
+        error: "Producto no encontrado" 
+      });
+    }
+    console.log("🔍 Producto encontrado:", product.name);
+    res.json(product);
+  } catch (error) {
+    console.error("❌ Error obteniendo producto:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Error obteniendo producto" 
+    });
+  }
+};
+
+exports.updateProduct = async (req, res) => {
+  try {
+    console.log("🔄 UPDATE PRODUCT - ID:", req.params.id);
+    
+    const updates = { ...req.body };
+    
+    if (req.file) {
+      updates.images = [`/uploads/${req.file.filename}`];
+      console.log("📸 Nueva imagen:", updates.images);
+    }
+    
+    if (updates.sizes && typeof updates.sizes === 'string') {
+      updates.sizes = JSON.parse(updates.sizes);
+    }
+
+    const product = await Product.findByIdAndUpdate(req.params.id, updates, { new: true });
+    
+    if (!product) {
+      return res.status(404).json({ 
+        success: false,
+        error: "Producto no encontrado" 
+      });
+    }
+
+    console.log("✅ PRODUCTO ACTUALIZADO:", product.name);
+    res.json({
+      success: true,
+      product: product
+    });
+
+  } catch (error) {
+    console.error("❌ Error actualizando producto:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Error actualizando producto" 
+    });
+  }
+};
+
 exports.deleteProduct = async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
-    if (!product) return res.status(404).json({ error: 'Producto no encontrado' });
-    res.json({ message: 'Producto eliminado correctamente' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+    
+    if (!product) {
+      return res.status(404).json({ 
+        success: false,
+        error: "Producto no encontrado" 
+      });
+    }
 
-// ======================================================
-// GET FEATURED PRODUCTS
-// ======================================================
-exports.getFeaturedProducts = async (req, res) => {
-  try {
-    console.log("📦 Solicitando productos destacados...");
-    const featuredProducts = await Product.find({ featured: true, active: true });
-    console.log(`✅ Encontrados ${featuredProducts.length} productos destacados`);
-    res.json(featuredProducts);
+    console.log("🗑️ PRODUCTO ELIMINADO:", product.name);
+    res.json({ 
+      success: true, 
+      message: "Producto eliminado correctamente" 
+    });
+
   } catch (error) {
-    console.error("❌ ERROR en getFeaturedProducts:", error);
-    res.status(500).json({ message: error.message });
+    console.error("❌ Error eliminando producto:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Error eliminando producto" 
+    });
   }
 };
