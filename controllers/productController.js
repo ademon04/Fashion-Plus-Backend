@@ -114,21 +114,13 @@ exports.createProduct = async (req, res) => {
       }
     }
 
-    // 🚨 CORRECCIÓN CRÍTICA: Usar URLs de Cloudinary en lugar de rutas locales
-    const images = req.files?.map(file => {
-      // ✅ file.path contiene la URL COMPLETA de Cloudinary
-      if (file.path && file.path.includes('cloudinary.com')) {
-        console.log(`✅ URL Cloudinary encontrada: ${file.path}`);
-        return file.path;
-      } else {
-        console.log(`❌ Archivo sin URL Cloudinary:`, file);
-        // Fallback: construir URL manualmente si es necesario
-        return `/uploads/${file.filename}`;
-      }
-    }) || [];
-
-    console.log("🔍 DEBUG - URLs de imágenes a guardar:", images);
-
+  const images = req.files?.map(file => {
+  if (file.path && file.path.includes('cloudinary.com')) {
+    return file.path; // URL completa de Cloudinary
+  } else {
+    return `/uploads/${file.filename}`; // Fallback
+  }
+}) || [];
     // 🔥 GENERAR SKU AUTOMÁTICO
     const generateSKU = () => {
       const categoryCode = category ? category.substring(0, 3).toUpperCase() : 'GEN';
