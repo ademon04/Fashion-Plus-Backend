@@ -1,20 +1,17 @@
+// 📁 backend/models/Product.js
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
   name: { type: String, required: true },
-  description: { type: String},
+  description: { type: String },
   price: { type: Number, required: true },
   originalPrice: { type: Number },
-
-  // SKU YA NO ES REQUIRED (se genera automáticamente)
   sku: { type: String, unique: true },
-
   category: { 
     type: String, 
     required: true,
     enum: ['hombre', 'mujer', 'niños', 'unisex']
   },
-
   subcategory: {
     type: String,
     required: true,
@@ -24,13 +21,12 @@ const productSchema = new mongoose.Schema({
       'bolsas', 'ropa-niños'
     ]
   },
-
   sizes: [{
     size: { type: String, required: true },
     stock: { type: Number, default: 0 },
     available: { type: Boolean, default: true }
   }],
-
+  // ✅ CORREGIDO: 'images' en plural para coincidir con BD
   images: [{ type: String }],
   colors: [{ type: String }],
   featured: { type: Boolean, default: true },
