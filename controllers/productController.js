@@ -114,13 +114,13 @@ exports.createProduct = async (req, res) => {
       }
     }
 
-  const images = req.files?.map(file => {
-  if (file.path && file.path.includes('cloudinary.com')) {
-    return file.path; // URL completa de Cloudinary
-  } else {
-    return `/uploads/${file.filename}`; // Fallback
+    // 🚨 CORRECCIÓN CRÍTICA: Usar URLs de Cloudinary en lugar de rutas locales,,,
+const images = req.files?.map(file => {
+  if (file.filename) {
+    return `/uploads/${file.filename}`; // Solo el public_id
   }
-}) || [];
+  return '';
+}).filter(img => img) || [];
     // 🔥 GENERAR SKU AUTOMÁTICO
     const generateSKU = () => {
       const categoryCode = category ? category.substring(0, 3).toUpperCase() : 'GEN';

@@ -57,8 +57,8 @@ router.get('/diagnostic/images', async (req, res) => {
 
 // Tus rutas existentes...
 router.get('/featured', productController.getFeaturedProducts);
-router.post("/create", upload.single("image"), productController.createProduct);
-router.put("/update/:id", upload.single("image"), productController.updateProduct);
+router.post("/create", upload.single("images"), productController.createProduct);
+router.put("/update/:id", upload.single("images"), productController.updateProduct);
 router.delete('/:id', productController.deleteProduct);
 router.get('/', productController.getAllProducts);
 router.get('/:id', productController.getProductById);
