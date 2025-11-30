@@ -2,10 +2,20 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 // Leer token de cookies HTTP-Only
+// middleware/auth.js - MEJORAR para aceptar ambos métodos
 const auth = async (req, res, next) => {
   try {
-    const token = req.cookies.admin_token;
+    let token = req.cookies.admin_token;
     
+    // ✅ FALLBACK: Si no hay cookie, buscar en header
+    if (!token && req.headers.authorization) {
+      const parts = req.headers.authorization.split(' ');
+      if (parts.length === 2 && parts[0] === 'Bearer') {
+        token = parts[1];
+        console.log('🔁 Usando token de header (fallback)');
+      }
+    }
+
     if (!token) {
       return res.status(401).json({ error: 'Acceso denegado. No hay token.' });
     }

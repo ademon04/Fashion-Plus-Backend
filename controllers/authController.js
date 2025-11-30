@@ -11,7 +11,6 @@ exports.login = async (req, res) => {
     if (!user || user.role !== 'admin') {
       return res.status(400).json({ error: 'Credenciales inválidas' });
     }
-
     // Verificar password
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
@@ -50,7 +49,11 @@ exports.login = async (req, res) => {
 
 // LOGOUT ADMIN
 exports.logout = (req, res) => {
-  res.clearCookie('admin_token');
+  res.clearCookie('admin_token',{
+     httpOnly: true,
+    secure: true,
+    sameSite: 'none'
+  });
   res.json({ message: 'Logout exitoso' });
 };
 

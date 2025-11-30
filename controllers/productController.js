@@ -245,10 +245,10 @@ exports.updateProduct = async (req, res) => {
     const updates = { ...req.body };
     
     // 🛡️ ACTUALIZACIÓN DE IMÁGENES (si se suben nuevas)
-    if (req.file) {
-      updates.images = [req.file.path];
-      console.log("📸 Nueva imagen asignada:", req.file.path);
-    }
+    if (req.files && req.files.length > 0) {
+  updates.images = req.files.map(file => file.path);
+  console.log("📸 Nuevas imágenes:", updates.images);
+}
 
     // 🛡️ PARSEO SEGURO DE TALLAS
     if (updates.sizes && typeof updates.sizes === "string") {
