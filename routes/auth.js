@@ -7,6 +7,8 @@ const { auth } = require('../middleware/auth');
 router.post('/register', authController.register);
 
 router.post('/login', authController.login);
+router.post('/logout', authController.logout);
+
 
 // RUTA PROTEGIDA
 router.get('/verify', auth, authController.verifyToken);
