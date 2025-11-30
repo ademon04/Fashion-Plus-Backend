@@ -19,6 +19,7 @@
     "jsonwebtoken": "^9.0.2",
     "mercadopago": "^2.10.0",
     "mongoose": "^8.19.2",
+    "mongoose-paginate-v2": "^1.9.1",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "stripe": "^20.0.0"
