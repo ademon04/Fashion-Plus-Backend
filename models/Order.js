@@ -90,42 +90,16 @@ const orderSchema = new mongoose.Schema({
   // =============================================
   // 🔐 SISTEMAS DE PAGO - STRIPE
   // =============================================
-  stripeSessionId: {
-    type: String,
-    sparse: true,
-    index: true
-  },
-
-  stripePaymentIntentId: {
-    type: String,
-    sparse: true,
-    index: true
-  },
-
-  stripeCustomerId: {
-    type: String,
-    sparse: true
-  },
+  stripeSessionId: String,
+  stripePaymentIntentId: String,
+  stripeCustomerId: String,
 
   // =============================================
   // 🔐 SISTEMAS DE PAGO - MERCADO PAGO
   // =============================================
-  mercadoPagoId: {
-    type: String,
-    sparse: true,
-    index: true
-  },
-
-  mercadoPagoPaymentId: {
-    type: String,
-    sparse: true,
-    index: true
-  },
-
-  mercadoPagoPreferenceId: {
-    type: String,
-    sparse: true
-  },
+  mercadoPagoId: String,
+  mercadoPagoPaymentId: String,
+  mercadoPagoPreferenceId: String,
 
   // =============================================
   // 📦 ESTADOS Y SEGUIMIENTO
@@ -146,27 +120,11 @@ const orderSchema = new mongoose.Schema({
   // 📮 INFORMACIÓN DE ENVÍO
   // =============================================
   shippingAddress: {
-    street: {
-      type: String,
-      trim: true
-    },
-    city: {
-      type: String,
-      trim: true
-    },
-    state: {
-      type: String,
-      trim: true
-    },
-    zipCode: {
-      type: String,
-      trim: true
-    },
-    country: { 
-      type: String, 
-      default: 'México',
-      trim: true
-    }
+    street: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    zipCode: { type: String, trim: true },
+    country: { type: String, default: 'México', trim: true }
   },
 
   shippingMethod: {
@@ -180,10 +138,7 @@ const orderSchema = new mongoose.Schema({
     min: 0
   },
 
-  trackingNumber: {
-    type: String,
-    sparse: true
-  },
+  trackingNumber: String,
 
   // =============================================
   // 📝 INFORMACIÓN ADICIONAL
@@ -205,36 +160,24 @@ const orderSchema = new mongoose.Schema({
   // =============================================
   orderNumber: { 
     type: String, 
-    unique: true,
+    unique: true, // ✅ SOLO AQUÍ - sin índice duplicado
     sparse: true
   },
 
   // =============================================
   // ⏰ FECHAS DE SEGUIMIENTO
   // =============================================
-  paidAt: {
-    type: Date
-  },
-
-  shippedAt: {
-    type: Date
-  },
-
-  deliveredAt: {
-    type: Date
-  },
-
-  cancelledAt: {
-    type: Date
-  },
-
+  paidAt: Date,
+  shippedAt: Date,
+  deliveredAt: Date,
+  cancelledAt: Date,
   statusUpdatedAt: {
     type: Date,
     default: Date.now
   }
 
 }, {
-  timestamps: true, // Crea createdAt y updatedAt automáticamente
+  timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
@@ -296,14 +239,16 @@ orderSchema.pre('save', function(next) {
 });
 
 // =============================================
-// 🔍 ÍNDICES PARA OPTIMIZACIÓN
+// 🔍 ÍNDICES OPTIMIZADOS (SIN DUPLICADOS)
 // =============================================
+
+// ❌ ELIMINADO: orderSchema.index({ orderNumber: 1 }, { unique: true });
+// ✅ Ya está definido en el campo orderNumber: { unique: true }
 
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ status: 1 });
 orderSchema.index({ paymentStatus: 1 });
 orderSchema.index({ 'customer.email': 1 });
-orderSchema.index({ orderNumber: 1 }, { unique: true });
 
 // Índices compuestos para consultas comunes
 orderSchema.index({ status: 1, createdAt: -1 });
@@ -331,7 +276,6 @@ orderSchema.methods.updateStatus = function(newStatus) {
   this.status = newStatus;
   this.statusUpdatedAt = new Date();
   
-  // Actualizar fechas específicas según el estado
   if (newStatus === 'shipped' && !this.shippedAt) {
     this.shippedAt = new Date();
   } else if (newStatus === 'delivered' && !this.deliveredAt) {
@@ -339,36 +283,6 @@ orderSchema.methods.updateStatus = function(newStatus) {
   } else if (newStatus === 'cancelled' && !this.cancelledAt) {
     this.cancelledAt = new Date();
   }
-};
-
-// =============================================
-// 🔧 MÉTODOS ESTÁTICOS
-// =============================================
-
-// Buscar órdenes por email de cliente
-orderSchema.statics.findByCustomerEmail = function(email) {
-  return this.find({ 'customer.email': new RegExp(email, 'i') })
-    .sort({ createdAt: -1 })
-    .populate('items.product', 'name image');
-};
-
-// Obtener estadísticas de órdenes
-orderSchema.statics.getOrderStats = function() {
-  return this.aggregate([
-    {
-      $group: {
-        _id: null,
-        totalOrders: { $sum: 1 },
-        totalRevenue: { $sum: '$total' },
-        pendingOrders: { 
-          $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } 
-        },
-        completedOrders: { 
-          $sum: { $cond: [{ $eq: ['$status', 'delivered'] }, 1, 0] } 
-        }
-      }
-    }
-  ]);
 };
 
 module.exports = mongoose.model('Order', orderSchema);
