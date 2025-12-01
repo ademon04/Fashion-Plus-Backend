@@ -312,9 +312,7 @@ exports.getOrders = async (req, res) => {
     let filter = {};
     if (status && status !== 'all') {
       filter.status = status;
-    }else  if (paymentMethod && paymentMethod !== 'all' && paymentMethod !== '') {
-  filter.paymentMethod = paymentMethod;
-}
+    }
 
     const options = {
       page: parseInt(page),

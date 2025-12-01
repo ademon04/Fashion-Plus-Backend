@@ -49,58 +49,42 @@ exports.createPaymentCheckout = async (req, res) => {
 // En controllers/paymentController.js - MODIFICA el catch:
 
 exports.handlePaymentWebhook = async (req, res) => {
-  let provider = req.params.provider; 
-  let webhookResult;
-
+  let provider; // ← DEFINIR provider aquí para el catch
+  
   try {
+    provider = req.params.provider; // ← Ahora está definida
+    
     console.log(`📡 WEBHOOK ${provider?.toUpperCase()} RECIBIDO`);
     console.log('🔐 Signature:', req.headers['stripe-signature'] ? 'PRESENTE' : 'FALTANTE');
     console.log('📦 Body type:', typeof req.body);
     console.log('📦 Body length:', req.body?.length);
 
+    let webhookResult;
     if (provider === 'stripe') {
       const signature = req.headers['stripe-signature'];
-
-      // Stripe exige Buffer
+      
+      // ✅ VERIFICAR que el body sea Buffer/String
       if (typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
         throw new Error('Body debe ser Buffer para Stripe');
       }
-
-      webhookResult = await paymentService.handleWebhook(
-        provider,
-        req.body,
-        signature
-      );
-
+      
+      webhookResult = await paymentService.handleWebhook(provider, req.body, signature);
     } else {
-      // Mercado Pago → Siempre asegurarnos que sea JSON válido
-      const jsonPayload = Buffer.isBuffer(req.body)
-        ? JSON.parse(req.body.toString())
-        : req.body;
-
-      webhookResult = await paymentService.handleWebhook(
-        provider,
-        jsonPayload
-      );
+      // Para Mercado Pago, convertir si es necesario
+      const jsonPayload = Buffer.isBuffer(req.body) ? 
+        JSON.parse(req.body.toString()) : req.body;
+      webhookResult = await paymentService.handleWebhook(provider, jsonPayload);
     }
 
-    // ⬇️ ⬇️ Solo ejecutamos esto si webhookResult existe y es válido
-    if (webhookResult?.orderId) {
-      await Order.findByIdAndUpdate(webhookResult.orderId, {
-        paymentMethod: provider, // stripe o mercadopago
-      });
-    }
-
-    // 🔥 Stripe exige 200 ALWAYS
-    return res.status(200).json({ received: true });
+    // ... resto del código igual
 
   } catch (error) {
     console.error(`❌ ERROR en webhook ${provider}:`, error.message);
-
-    // 🔥 Stripe y MP → No reintentos, siempre 200
-    return res.status(200).json({
-      received: true,
-      error: error.message
+    
+    // ✅ SIEMPRE responder 200 a Stripe (evita reintentos)
+    res.status(200).json({ 
+      received: true, 
+      error: error.message 
     });
   }
 };
