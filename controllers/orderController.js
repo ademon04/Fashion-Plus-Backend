@@ -25,12 +25,12 @@ exports.createOrder = async (req, res) => {
     console.log(" - Frontend URL:", process.env.FRONTEND_URL);
     console.log(" - Backend URL:", process.env.BACKEND_URL);
 
-    const { customer, items, shippingAddress, customerNotes } = req.body;
+    const { customer, items, shippingAddress, customerNotes, paymentMethod  } = req.body;
     const userId = req.user ? req.user.id : null;
 
     // Validaciones básicas
     if (!items || items.length === 0) {
-      return res.status(400).json({ error: "No hay items en la orden" });
+      return res.status(400).json({ error: "No hay items en la  orden" });
     }
 
     if (!customer?.name || !customer?.email) {
@@ -312,7 +312,9 @@ exports.getOrders = async (req, res) => {
     let filter = {};
     if (status && status !== 'all') {
       filter.status = status;
-    }
+    }else  if (paymentMethod && paymentMethod !== 'all' && paymentMethod !== '') {
+  filter.paymentMethod = paymentMethod;
+}
 
     const options = {
       page: parseInt(page),
