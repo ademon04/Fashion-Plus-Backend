@@ -73,16 +73,22 @@ router.post('/create-checkout-session', async (req, res) => {
       customer_email: customer.email,
       
       // ✅ METADATA MEJORADA PARA EL WEBHOOK (COMBINADO)
-      metadata: {
-        order_id: orderId.toString(), // ✅ CRÍTICO para webhook
-        order_number: order.orderNumber,
-        customer_name: customer.name,
-        customer_email: customer.email,
-        customer_phone: customer.phone || '',
-        shipping_address: `${customer.address || ''}, ${customer.city || ''}, ${customer.zipCode || ''}`,
-        items: JSON.stringify(items)
-      },
-      
+     metadata: {
+  order_id: orderId.toString(),
+  order_number: order.orderNumber,
+  customer_name: customer.name,
+  customer_email: customer.email,
+  customer_phone: customer.phone || '',
+  shipping_address: `${customer.address || ''}, ${customer.city || ''}, ${customer.zipCode || ''}`,
+  items: JSON.stringify(
+    items.map(item => ({
+      productName: item.name || item.productName,
+      size: item.size,
+      quantity: item.quantity,
+      price: item.price
+    }))
+  )
+},      
       shipping_address_collection: { allowed_countries: ['MX'] },
     });
 
