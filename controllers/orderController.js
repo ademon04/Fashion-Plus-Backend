@@ -82,7 +82,11 @@ exports.createOrder = async (req, res) => {
         quantity: item.quantity,
         price: product.price,
         subtotal: itemTotal,
-      });
+         image: product.images && product.images.length > 0 ? product.images[0] : null,
+         images: product.images || [], 
+    productImages: product.images, 
+  });
+     
 
       console.log(`📦 Item ${i + 1} procesado: ${product.name} - $${product.price} x ${item.quantity} = $${itemTotal}`);
     }
