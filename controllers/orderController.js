@@ -151,6 +151,7 @@ exports.createOrder = async (req, res) => {
             quantity: Number(item.quantity),
             currency_id: "MXN",
             description: `Talla: ${item.size}`,
+            
           })),
           back_urls: {
             success: `${process.env.FRONTEND_URL}/checkout/success`,

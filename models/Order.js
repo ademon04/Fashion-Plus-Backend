@@ -63,6 +63,10 @@ const orderSchema = new mongoose.Schema({
     subtotal: {
       type: Number,
       required: true
+    },
+     image: {
+      type: String,
+      default: ''
     }
   }],
 
