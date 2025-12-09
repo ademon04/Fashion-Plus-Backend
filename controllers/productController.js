@@ -28,12 +28,12 @@ exports.createProduct = async (req, res) => {
     } = req.body;
 
     // 🛡️ VALIDACIONES DE CAMPOS OBLIGATORIOS
-    if (!name || !name.trim()) {
-      return res.status(400).json({ 
-        success: false, 
-        error: "El nombre del producto es obligatorio" 
-      });
-    }
+   if (!name || name.trim().length === 0) {
+  return res.status(400).json({ 
+    success: false, 
+    error: "El nombre del producto es obligatorio y no puede contener solo espacios" 
+  });
+}
 
     if (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
       return res.status(400).json({ 
@@ -57,17 +57,17 @@ exports.createProduct = async (req, res) => {
 
     // 🛡️ CONSTRUCCIÓN SEGURA DEL PRODUCTO
     const productData = {
-      name: name.trim(),
-      description: description.trim(),
-      price: parseFloat(price),
-      originalPrice: 0,
-      category: category.trim(),
-      subcategory: subcategory.trim(),
-      onSale: onSale === "true",
-      featured: featured === "true",
-      images: imageUrls, // URLs completas de Cloudinary
-      sku: `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
-    };
+  name: name,                    // SIN .trim() - permite espacios normales
+  description: description,      // SIN .trim() - permite espacios normales
+  price: parseFloat(price),
+  originalPrice: 0,
+  category: category ? category.trim() : '',
+  subcategory: subcategory ? subcategory.trim() : '',
+  onSale: onSale === "true",
+  featured: featured === "true",
+  images: imageUrls,
+  sku: `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+};
 
     // 🛡️ PARSEO SEGURO DE TALLAS
     try {
