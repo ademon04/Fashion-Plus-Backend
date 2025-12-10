@@ -36,6 +36,14 @@ const orderSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  archivedAt: {
+    type: Date
+  },
+  archiveReason: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'La razón no puede exceder 500 caracteres']
+  },
 
   // =============================================
   // 🛒 ITEMS DE LA ORDEN
