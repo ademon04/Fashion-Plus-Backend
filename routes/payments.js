@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const Order = require('../models/Order'); // ✅ IMPORTAR MODELO
+const { auth, adminAuth } = require('../middleware/auth'); // ✅ AGREGAR IMPORTACIÓN
 
-// Crear sesión de Checkout de Stripe
+// Crear sesión de Checkout de Stripe (PÚBLICA - para clientes)
 router.post('/create-checkout-session', async (req, res) => {
   try {
     console.log('🔵 Body recibido en /create-checkout-session:', JSON.stringify(req.body, null, 2));
@@ -73,22 +74,22 @@ router.post('/create-checkout-session', async (req, res) => {
       customer_email: customer.email,
       
       // ✅ METADATA MEJORADA PARA EL WEBHOOK (COMBINADO)
-     metadata: {
-  order_id: orderId.toString(),
-  order_number: order.orderNumber,
-  customer_name: customer.name,
-  customer_email: customer.email,
-  customer_phone: customer.phone || '',
-  shipping_address: `${customer.address || ''}, ${customer.city || ''}, ${customer.zipCode || ''}`,
-  items: JSON.stringify(
-    items.map(item => ({
-      productName: item.name || item.productName,
-      size: item.size,
-      quantity: item.quantity,
-      price: item.price
-    }))
-  )
-},      
+      metadata: {
+        order_id: orderId.toString(),
+        order_number: order.orderNumber,
+        customer_name: customer.name,
+        customer_email: customer.email,
+        customer_phone: customer.phone || '',
+        shipping_address: `${customer.address || ''}, ${customer.city || ''}, ${customer.zipCode || ''}`,
+        items: JSON.stringify(
+          items.map(item => ({
+            productName: item.name || item.productName,
+            size: item.size,
+            quantity: item.quantity,
+            price: item.price
+          }))
+        )
+      },      
       shipping_address_collection: { allowed_countries: ['MX'] },
     });
 
@@ -117,8 +118,8 @@ router.post('/create-checkout-session', async (req, res) => {
   }
 });
 
-// Consultar estado de sesión (EXISTENTE)
-router.get('/session-status', async (req, res) => {
+// Consultar estado de sesión (PROTEGIDA - solo admin)
+router.get('/session-status', auth, adminAuth, async (req, res) => { // ✅ AGREGAR auth, adminAuth
   try {
     const { session_id } = req.query;
     const session = await stripe.checkout.sessions.retrieve(session_id);
