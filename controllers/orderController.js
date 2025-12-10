@@ -85,8 +85,7 @@ exports.createOrder = async (req, res) => {
         image: product.images && product.images.length > 0 ? product.images[0] : null,
         images: product.images || [], 
         productImages: product.images, 
-  });
-     
+      });
 
       console.log(`📦 Item ${i + 1} procesado: ${product.name} - $${product.price} x ${item.quantity} = $${itemTotal}`);
     }
@@ -336,9 +335,6 @@ exports.webhook = async (req, res) => {
 // ======================================================
 // 📋 OBTENER TODAS LAS ÓRDENES (ADMIN) - CON FILTROS MEJORADOS
 // ======================================================
-// ======================================================
-// 📋 OBTENER TODAS LAS ÓRDENES (ADMIN) - CON FILTROS MEJORADOS
-// ======================================================
 exports.getOrders = async (req, res) => {
   try {
     // ✅ RECIBIR TODOS LOS FILTROS (incluyendo archived)
@@ -410,6 +406,7 @@ exports.getOrders = async (req, res) => {
     });
   }
 };
+
 // ======================================================
 // 📦 OBTENER ORDEN POR ID
 // ======================================================
@@ -555,19 +552,6 @@ exports.getMyOrders = async (req, res) => {
       error: "Error al obtener tus órdenes" 
     });
   }
-};
-
-// ======================================================
-// 🎯 EXPORTACIÓN ÚNICA - ¡NO DUPLICAR!
-// ======================================================
-module.exports = {
-  createOrder: exports.createOrder,
-  webhook: exports.webhook,
-  getOrders: exports.getOrders,
-  getOrderById: exports.getOrderById,
-  updateOrderStatus: exports.updateOrderStatus,
-  deleteOrder: exports.deleteOrder,
-  getMyOrders: exports.getMyOrders
 };
 
 // ======================================================
@@ -806,4 +790,21 @@ exports.getArchivedOrders = async (req, res) => {
       error: "Error al obtener órdenes archivadas" 
     });
   }
+};
+
+// ======================================================
+// 🎯 EXPORTACIÓN ÚNICA - ¡NO DUPLICAR!
+// ======================================================
+module.exports = {
+  createOrder: exports.createOrder,
+  webhook: exports.webhook,
+  getOrders: exports.getOrders,
+  getArchivedOrders: exports.getArchivedOrders,   
+  getOrderById: exports.getOrderById,
+  updateOrderStatus: exports.updateOrderStatus,
+  archiveOrder: exports.archiveOrder,              
+  restoreOrder: exports.restoreOrder,             
+  deleteOrder: exports.deleteOrder,
+  deletePermanently: exports.deletePermanently,    
+  getMyOrders: exports.getMyOrders
 };
