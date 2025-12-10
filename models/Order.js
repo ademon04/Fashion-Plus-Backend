@@ -32,6 +32,10 @@ const orderSchema = new mongoose.Schema({
       trim: true
     }
   },
+   archived: {
+    type: Boolean,
+    default: false
+  },
 
   // =============================================
   // 🛒 ITEMS DE LA ORDEN

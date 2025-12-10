@@ -82,9 +82,9 @@ exports.createOrder = async (req, res) => {
         quantity: item.quantity,
         price: product.price,
         subtotal: itemTotal,
-         image: product.images && product.images.length > 0 ? product.images[0] : null,
-         images: product.images || [], 
-    productImages: product.images, 
+        image: product.images && product.images.length > 0 ? product.images[0] : null,
+        images: product.images || [], 
+        productImages: product.images, 
   });
      
 
@@ -336,39 +336,54 @@ exports.webhook = async (req, res) => {
 // ======================================================
 // 📋 OBTENER TODAS LAS ÓRDENES (ADMIN) - CON FILTROS MEJORADOS
 // ======================================================
+// ======================================================
+// 📋 OBTENER TODAS LAS ÓRDENES (ADMIN) - CON FILTROS MEJORADOS
+// ======================================================
 exports.getOrders = async (req, res) => {
   try {
-    // ✅ RECIBIR TODOS LOS FILTROS
-    const { status, paymentMethod, paymentStatus, page = 1, limit = 10 } = req.query;
+    // ✅ RECIBIR TODOS LOS FILTROS (incluyendo archived)
+    const { status, paymentMethod, paymentStatus, archived, page = 1, limit = 10 } = req.query;
     
     let filter = {};
+    
+    // ✅ FILTRAR POR ARCHIVADO (NUEVO)
+    // Si viene 'true' o true, mostrar solo archivadas
+    // Si viene 'false' o false, mostrar solo NO archivadas
+    // Si no viene, mostrar todas (sin filtro)
+    if (archived !== undefined && archived !== '') {
+      filter.archived = archived === 'true' || archived === true;
+    }
     
     // ✅ FILTRAR POR STATUS
     if (status && status !== 'all' && status !== '') {
       filter.status = status;
     }
     
-    // ✅ FILTRAR POR MÉTODO DE PAGO (NUEVO)
+    // ✅ FILTRAR POR MÉTODO DE PAGO
     if (paymentMethod && paymentMethod !== 'all' && paymentMethod !== '') {
       filter.paymentMethod = paymentMethod;
     }
     
-    // ✅ FILTRAR POR ESTADO DE PAGO (NUEVO)
+    // ✅ FILTRAR POR ESTADO DE PAGO
     if (paymentStatus && paymentStatus !== 'all' && paymentStatus !== '') {
       filter.paymentStatus = paymentStatus;
     }
+
+    console.log("🔍 Filtros aplicados en getOrders:", filter);
 
     const options = {
       page: parseInt(page),
       limit: parseInt(limit),
       sort: { createdAt: -1 },
       populate: [
-        { path: "items.product", select: "name image" },
+        { path: "items.product", select: "name image images" }, // AGREGADO 'images'
         { path: "user", select: "name email" }
       ]
     };
 
     const orders = await Order.paginate(filter, options);
+
+    console.log(`✅ Encontradas ${orders.totalDocs} órdenes`);
 
     res.json({
       success: true,
@@ -382,7 +397,8 @@ exports.getOrders = async (req, res) => {
       filtersApplied: {
         status: status || 'none',
         paymentMethod: paymentMethod || 'none',
-        paymentStatus: paymentStatus || 'none'
+        paymentStatus: paymentStatus || 'none',
+        archived: archived || 'none' // AGREGADO
       }
     });
 
@@ -394,7 +410,6 @@ exports.getOrders = async (req, res) => {
     });
   }
 };
-
 // ======================================================
 // 📦 OBTENER ORDEN POR ID
 // ======================================================
@@ -553,4 +568,242 @@ module.exports = {
   updateOrderStatus: exports.updateOrderStatus,
   deleteOrder: exports.deleteOrder,
   getMyOrders: exports.getMyOrders
+};
+
+// ======================================================
+// 📁 ARCHIVAR/ELIMINAR ORDEN (ADMIN) - FUNCIONES NUEVAS
+// ======================================================
+exports.archiveOrder = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    const { archived = true, reason = '' } = req.body;
+
+    console.log(`📁 ${archived ? 'ARCHIVANDO' : 'DESARCHIVANDO'} ORDEN: ${orderId}`);
+
+    // 🛡️ VALIDACIÓN: ID válido
+    if (!orderId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        success: false,
+        error: "ID de orden inválido"
+      });
+    }
+
+    const updateData = {
+      archived: archived,
+      ...(archived && { 
+        archivedAt: new Date(),
+        archiveReason: reason || 'Archivado por administrador'
+      }),
+      ...(!archived && { 
+        archivedAt: null,
+        archiveReason: null
+      })
+    };
+
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      updateData,
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: "Orden no encontrada"
+      });
+    }
+
+    console.log(`✅ ORDEN ${archived ? 'ARCHIVADA' : 'DESARCHIVADA'}: ${order._id}`);
+
+    res.json({
+      success: true,
+      message: archived ? "Orden archivada correctamente" : "Orden restaurada correctamente",
+      order: {
+        id: order._id,
+        orderNumber: order.orderNumber,
+        archived: order.archived,
+        archivedAt: order.archivedAt
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ ERROR AL ARCHIVAR/DESARCHIVAR ORDEN:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al procesar la orden"
+    });
+  }
+};
+
+// ======================================================
+// 📂 RESTAURAR ORDEN ARCHIVADA (ADMIN) - ALTERNATIVA
+// ======================================================
+exports.restoreOrder = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    console.log(`📂 RESTAURANDO ORDEN: ${orderId}`);
+
+    // 🛡️ VALIDACIÓN: ID válido
+    if (!orderId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        success: false,
+        error: "ID de orden inválido"
+      });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        archived: false,
+        archivedAt: null,
+        archiveReason: null
+      },
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: "Orden no encontrada"
+      });
+    }
+
+    console.log(`✅ ORDEN RESTAURADA: ${order._id}`);
+
+    res.json({
+      success: true,
+      message: "Orden restaurada correctamente",
+      order: {
+        id: order._id,
+        orderNumber: order.orderNumber,
+        archived: order.archived
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ ERROR AL RESTAURAR ORDEN:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al restaurar la orden"
+    });
+  }
+};
+
+// ======================================================
+// 🗑️ ELIMINACIÓN PERMANENTE (SOLO PARA ORDENES ARCHIVADAS)
+// ======================================================
+exports.deletePermanently = async (req, res) => {
+  try {
+    const orderId = req.params.id;
+    console.log(`🗑️ ELIMINANDO ORDEN PERMANENTEMENTE: ${orderId}`);
+
+    // 🛡️ VALIDACIÓN: ID válido
+    if (!orderId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({
+        success: false,
+        error: "ID de orden inválido"
+      });
+    }
+
+    // Verificar que la orden existe y está archivada
+    const order = await Order.findById(orderId);
+    
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: "Orden no encontrada"
+      });
+    }
+
+    // Opcional: Solo permitir eliminar órdenes archivadas
+    // if (!order.archived) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     error: "Solo se pueden eliminar órdenes archivadas"
+    //   });
+    // }
+
+    // Eliminar físicamente
+    await Order.findByIdAndDelete(orderId);
+
+    console.log(`✅ ORDEN ELIMINADA PERMANENTEMENTE: ${orderId}`);
+
+    res.json({
+      success: true,
+      message: "Orden eliminada permanentemente",
+      deletedOrder: {
+        id: order._id,
+        orderNumber: order.orderNumber,
+        customerName: order.customer?.name
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ ERROR AL ELIMINAR ORDEN:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error al eliminar la orden"
+    });
+  }
+};
+
+// ======================================================
+// 📋 OBTENER ORDENES ARCHIVADAS
+// ======================================================
+exports.getArchivedOrders = async (req, res) => {
+  try {
+    console.log("📋 OBTENIENDO ÓRDENES ARCHIVADAS");
+    
+    const { status, paymentMethod, paymentStatus, page = 1, limit = 20 } = req.query;
+    
+    let filter = { archived: true };
+    
+    // ✅ FILTRAR POR STATUS
+    if (status && status !== 'all' && status !== '') {
+      filter.status = status;
+    }
+    
+    // ✅ FILTRAR POR MÉTODO DE PAGO
+    if (paymentMethod && paymentMethod !== 'all' && paymentMethod !== '') {
+      filter.paymentMethod = paymentMethod;
+    }
+    
+    // ✅ FILTRAR POR ESTADO DE PAGO
+    if (paymentStatus && paymentStatus !== 'all' && paymentStatus !== '') {
+      filter.paymentStatus = paymentStatus;
+    }
+
+    console.log("🔍 Filtros aplicados:", filter);
+
+    const options = {
+      page: parseInt(page),
+      limit: parseInt(limit),
+      sort: { archivedAt: -1 },
+      populate: [
+        { path: "items.product", select: "name images" },
+        { path: "user", select: "name email" }
+      ]
+    };
+
+    const orders = await Order.paginate(filter, options);
+
+    console.log(`✅ Encontradas ${orders.totalDocs} órdenes archivadas`);
+
+    res.json({
+      success: true,
+      orders: orders.docs,
+      totalArchived: orders.totalDocs,
+      totalPages: orders.totalPages,
+      currentPage: orders.page,
+      hasNext: orders.hasNextPage,
+      hasPrev: orders.hasPrevPage
+    });
+
+  } catch (error) {
+    console.error("❌ ERROR en getArchivedOrders:", error);
+    res.status(500).json({ 
+      success: false,
+      error: "Error al obtener órdenes archivadas" 
+    });
+  }
 };
