@@ -19,7 +19,7 @@ app.use(cors({
   origin: [
     'https://fashion-plus-frontend.vercel.app',
     'http://localhost:3000',
-    'https://fashionpluspremium.com/'
+    'https://fashionpluspremium.com'
     
   ],
   credentials: true,
