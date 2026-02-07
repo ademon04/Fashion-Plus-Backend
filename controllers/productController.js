@@ -73,7 +73,6 @@ exports.createProduct = async (req, res) => {
     try {
       productData.sizes = JSON.parse(sizes || "[]");
     } catch (error) {
-      console.log("⚠️ Error parseando sizes, usando array vacío");
       productData.sizes = [];
     }
 

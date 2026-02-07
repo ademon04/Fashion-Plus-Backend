@@ -18,7 +18,9 @@ const app = express();
 app.use(cors({
   origin: [
     'https://fashion-plus-frontend.vercel.app',
-    'http://localhost:3000'
+    'http://localhost:3000',
+    'https://www.fashionpluspremium.com',
+    
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -35,13 +37,13 @@ app.post('/api/payments/webhook/stripe',
   async (req, res) => {
     try {
       const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-      const Order = require('./models/Order'); // ✅ IMPORTAR MODELO
-      const Product = require('./models/Product'); // ✅ IMPORTAR MODELO
+      const Order = require('./models/Order'); // 
+      const Product = require('./models/Product'); 
       
       const sig = req.headers['stripe-signature'];
 
-      console.log('🔵 Webhook Stripe recibido');
-      console.log('🔐 Signature presente:', !!sig);
+      console.log(' Webhook Stripe recibido');
+      console.log(' Signature presente:', !!sig);
 
       let event;
       try {
@@ -50,40 +52,40 @@ app.post('/api/payments/webhook/stripe',
           sig, 
           process.env.STRIPE_WEBHOOK_SECRET
         );
-        console.log('✅ Evento verificado:', event.type);
+        console.log(' Evento verificado:', event.type);
       } catch (err) {
-        console.error('❌ Error de verificación:', err.message);
+        console.error(' Error de verificación:', err.message);
         return res.status(400).send(`Webhook Error: ${err.message}`);
       }
 
-      // 🔥 MANEJAR CHECKOUT COMPLETADO
+      //  MANEJAR CHECKOUT COMPLETADO
       if (event.type === 'checkout.session.completed') {
         const session = event.data.object;
         console.log('💰 Checkout completado:', session.id);
         
-        // ✅ OBTENER order_id DEL METADATA
+        // OBTENER order_id DEL METADATA
         const orderId = session.metadata?.order_id;
         if (!orderId) {
           console.error('❌ No se encontró order_id en metadata');
           return res.json({received: true, error: 'No order_id in metadata'});
         }
         
-        // ✅ BUSCAR LA ORDEN EXISTENTE (NO CREAR NUEVA)
+        //  BUSCAR LA ORDEN EXISTENTE (NO CREAR NUEVA)
         const order = await Order.findById(orderId);
         if (!order) {
           console.error(`❌ Orden no encontrada: ${orderId}`);
           return res.json({received: true, error: 'Order not found'});
         }
         
-        console.log(`✅ Orden encontrada: ${order.orderNumber}`);
+        console.log(`Orden encontrada: ${order.orderNumber}`);
         
-        // ✅ ACTUALIZAR LA ORDEN EXISTENTE
+        //  ACTUALIZAR LA ORDEN EXISTENTE
         order.paymentStatus = 'approved';
         order.status = 'confirmed';
         order.paidAt = new Date();
         order.stripePaymentIntentId = session.payment_intent;
         
-        // ✅ ACTUALIZAR DIRECCIÓN DE ENVÍO
+        // ACTUALIZAR DIRECCIÓN DE ENVÍO
         if (session.shipping_details?.address) {
           // Si Stripe proporciona dirección estructurada
           const addr = session.shipping_details.address;
@@ -94,7 +96,7 @@ app.post('/api/payments/webhook/stripe',
             zipCode: addr.postal_code || '',
             country: addr.country || 'México'
           };
-          console.log('📍 Dirección de Stripe:', order.shippingAddress);
+          console.log(' Dirección de Stripe:', order.shippingAddress);
         } else if (session.metadata?.shipping_address) {
           // Parsear desde metadata
           const addressParts = session.metadata.shipping_address.split(',').map(p => p.trim());
@@ -104,10 +106,10 @@ app.post('/api/payments/webhook/stripe',
             zipCode: addressParts[2] || '',
             country: 'México'
           };
-          console.log('📍 Dirección de metadata:', order.shippingAddress);
+          console.log(' Dirección de metadata:', order.shippingAddress);
         }
         
-        // ✅ ACTUALIZAR DATOS DEL CLIENTE
+        //  ACTUALIZAR DATOS DEL CLIENTE
         if (session.metadata?.customer_name) {
           order.customer.name = session.metadata.customer_name;
         }
@@ -119,10 +121,10 @@ app.post('/api/payments/webhook/stripe',
         }
         
         await order.save();
-        console.log(`✅ Orden ${orderId} actualizada exitosamente`);
+        console.log(` Orden ${orderId} actualizada exitosamente`);
         
-        // ✅ ACTUALIZAR INVENTARIO
-        console.log('📊 Actualizando inventario...');
+        //  ACTUALIZAR INVENTARIO
+        console.log(' Actualizando inventario...');
         for (const item of order.items) {
           const product = await Product.findById(item.product);
           if (product) {
@@ -131,19 +133,18 @@ app.post('/api/payments/webhook/stripe',
               const oldStock = product.sizes[sizeIndex].stock;
               product.sizes[sizeIndex].stock -= item.quantity;
               await product.save();
-              console.log(`   - ${product.name} (${item.size}): ${oldStock} → ${product.sizes[sizeIndex].stock}`);
+              /*console.log(`   - ${product.name} (${item.size}): ${oldStock} → ${product.sizes[sizeIndex].stock}`);*/
             }
           }
         }
         
-        console.log('🎉 ¡Orden procesada exitosamente!');
       }
       
-      // ✅ SIEMPRE RESPONDER 200 A STRIPE
+      //  SIEMPRE RESPONDER 200 A STRIPE
       res.json({received: true, processed: true});
       
     } catch (error) {
-      console.error('❌ Error procesando webhook:', error.message);
+      console.error(' Error procesando webhook:', error.message);
       // Aún con error, responder 200 para que Stripe no reintente
       res.json({received: true, error: error.message});
     }
@@ -221,7 +222,7 @@ app.post('/api/upload',
       }
       
       const imageUrl = req.file.path;
-      console.log('✅ Imagen subida a Cloudinary:', imageUrl);
+      /*console.log('Imagen subida a Cloudinary:', imageUrl);*/
       
       res.json({ 
         success: true, 
@@ -354,10 +355,10 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Servidor corriendo en puerto ${PORT}`);
-  console.log(`🌐 Frontend: ${process.env.FRONTEND_URL || 'https://fashion-plus-frontend.vercel.app'}`);
-  console.log(`☁️  Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? '✅ Configurado' : '❌ No configurado'}`);
-  console.log(`💳 Stripe: ${process.env.STRIPE_SECRET_KEY ? '✅ Configurado' : '❌ No configurado'}`);
-  console.log(`📊 Entorno: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Webhook Stripe: https://fashion-plus-production.up.railway.app/api/payments/webhook/stripe`);
+  console.log(` Servidor corriendo en puerto ${PORT}`);
+  console.log(`Frontend: ${process.env.FRONTEND_URL || 'https://fashion-plus-frontend.vercel.app'}`);
+  console.log(` Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? 'Configurado' : ' No configurado'}`);
+  console.log(` Stripe: ${process.env.STRIPE_SECRET_KEY ? 'Configurado' : ' No configurado'}`);
+  console.log(` Entorno: ${process.env.NODE_ENV || 'development'}`);
+  console.log(` Webhook Stripe: https://fashion-plus-production.up.railway.app/api/payments/webhook/stripe`);
 });

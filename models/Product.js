@@ -1,4 +1,4 @@
-// 📁 backend/models/Product.js
+// backend/models/Product.js
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
@@ -26,7 +26,6 @@ const productSchema = new mongoose.Schema({
     stock: { type: Number, default: 0 },
     available: { type: Boolean, default: true }
   }],
-  // ✅ CORREGIDO: 'images' en plural para coincidir con BD
   images: [{ type: String }],
   colors: [{ type: String }],
   featured: { type: Boolean, default: true },

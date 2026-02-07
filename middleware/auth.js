@@ -12,7 +12,6 @@ const auth = async (req, res, next) => {
       const parts = req.headers.authorization.split(' ');
       if (parts.length === 2 && parts[0] === 'Bearer') {
         token = parts[1];
-        console.log('🔁 Usando token de header (fallback)');
       }
     }
 

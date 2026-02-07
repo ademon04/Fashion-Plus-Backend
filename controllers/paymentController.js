@@ -54,16 +54,13 @@ exports.handlePaymentWebhook = async (req, res) => {
   try {
     provider = req.params.provider; // ← Ahora está definida
     
-    console.log(`📡 WEBHOOK ${provider?.toUpperCase()} RECIBIDO`);
-    console.log('🔐 Signature:', req.headers['stripe-signature'] ? 'PRESENTE' : 'FALTANTE');
-    console.log('📦 Body type:', typeof req.body);
-    console.log('📦 Body length:', req.body?.length);
+
 
     let webhookResult;
     if (provider === 'stripe') {
       const signature = req.headers['stripe-signature'];
       
-      // ✅ VERIFICAR que el body sea Buffer/String
+      //  VERIFICAR que el body sea Buffer/String
       if (typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
         throw new Error('Body debe ser Buffer para Stripe');
       }
@@ -76,12 +73,10 @@ exports.handlePaymentWebhook = async (req, res) => {
       webhookResult = await paymentService.handleWebhook(provider, jsonPayload);
     }
 
-    // ... resto del código igual
 
   } catch (error) {
-    console.error(`❌ ERROR en webhook ${provider}:`, error.message);
+    console.error(` ERROR en webhook ${provider}:`, error.message);
     
-    // ✅ SIEMPRE responder 200 a Stripe (evita reintentos)
     res.status(200).json({ 
       received: true, 
       error: error.message 

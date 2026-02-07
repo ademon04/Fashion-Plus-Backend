@@ -82,9 +82,8 @@ exports.createOrder = async (req, res) => {
         quantity: item.quantity,
         price: product.price,
         subtotal: itemTotal,
-        image: product.images && product.images.length > 0 ? product.images[0] : null,
-        images: product.images || [], 
-        productImages: product.images, 
+        image: product.images && product.images.length > 0 ? product.images[0] : '', // ✅ Asegurar que se guarde
+
       });
 
       console.log(`📦 Item ${i + 1} procesado: ${product.name} - $${product.price} x ${item.quantity} = $${itemTotal}`);
@@ -555,38 +554,22 @@ exports.getMyOrders = async (req, res) => {
 };
 
 // ======================================================
-// 📁 ARCHIVAR/ELIMINAR ORDEN (ADMIN) - FUNCIONES NUEVAS
+// ARCHIVAR/ELIMINAR ORDEN (ADMIN) - FUNCIONES NUEVAS
 // ======================================================
 exports.archiveOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
-    const { archived = true, reason = '' } = req.body;
 
-    console.log(`📁 ${archived ? 'ARCHIVANDO' : 'DESARCHIVANDO'} ORDEN: ${orderId}`);
-
-    // 🛡️ VALIDACIÓN: ID válido
-    if (!orderId.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({
-        success: false,
-        error: "ID de orden inválido"
-      });
-    }
-
-    const updateData = {
-      archived: archived,
-      ...(archived && { 
-        archivedAt: new Date(),
-        archiveReason: reason || 'Archivado por administrador'
-      }),
-      ...(!archived && { 
-        archivedAt: null,
-        archiveReason: null
-      })
-    };
-
+    
+    
+    // Opción simple: siempre archivar (sin validaciones complejas)
     const order = await Order.findByIdAndUpdate(
       orderId,
-      updateData,
+      {
+        archived: true,
+        archivedAt: new Date(),
+        archiveReason: req.body.reason || 'Archivado por administrador'
+      },
       { new: true }
     );
 
@@ -597,11 +580,9 @@ exports.archiveOrder = async (req, res) => {
       });
     }
 
-    console.log(`✅ ORDEN ${archived ? 'ARCHIVADA' : 'DESARCHIVADA'}: ${order._id}`);
-
     res.json({
       success: true,
-      message: archived ? "Orden archivada correctamente" : "Orden restaurada correctamente",
+      message: "Orden archivada correctamente",
       order: {
         id: order._id,
         orderNumber: order.orderNumber,
@@ -611,10 +592,10 @@ exports.archiveOrder = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ ERROR AL ARCHIVAR/DESARCHIVAR ORDEN:", error);
+    console.error("❌ ERROR:", error.message);
     res.status(500).json({
       success: false,
-      error: "Error al procesar la orden"
+      error: "Error al archivar la orden: " + error.message
     });
   }
 };
@@ -625,7 +606,6 @@ exports.archiveOrder = async (req, res) => {
 exports.restoreOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
-    console.log(`📂 RESTAURANDO ORDEN: ${orderId}`);
 
     // 🛡️ VALIDACIÓN: ID válido
     if (!orderId.match(/^[0-9a-fA-F]{24}$/)) {
@@ -652,7 +632,6 @@ exports.restoreOrder = async (req, res) => {
       });
     }
 
-    console.log(`✅ ORDEN RESTAURADA: ${order._id}`);
 
     res.json({
       success: true,
@@ -679,7 +658,7 @@ exports.restoreOrder = async (req, res) => {
 exports.deletePermanently = async (req, res) => {
   try {
     const orderId = req.params.id;
-    console.log(`🗑️ ELIMINANDO ORDEN PERMANENTEMENTE: ${orderId}`);
+    console.log(` ELIMINANDO ORDEN PERMANENTEMENTE: ${orderId}`);
 
     // 🛡️ VALIDACIÓN: ID válido
     if (!orderId.match(/^[0-9a-fA-F]{24}$/)) {
@@ -736,7 +715,7 @@ exports.deletePermanently = async (req, res) => {
 // ======================================================
 exports.getArchivedOrders = async (req, res) => {
   try {
-    console.log("📋 OBTENIENDO ÓRDENES ARCHIVADAS");
+    console.log(" OBTENIENDO ÓRDENES ARCHIVADAS");
     
     const { status, paymentMethod, paymentStatus, page = 1, limit = 20 } = req.query;
     

@@ -3,7 +3,7 @@ const mongoosePaginate = require('mongoose-paginate-v2');
 
 const orderSchema = new mongoose.Schema({
   // =============================================
-  // 👤 INFORMACIÓN DE USUARIO Y CLIENTE
+  // INFORMACIÓN DE USUARIO Y CLIENTE
   // =============================================
   user: { 
     type: mongoose.Schema.Types.ObjectId,
@@ -46,7 +46,7 @@ const orderSchema = new mongoose.Schema({
   },
 
   // =============================================
-  // 🛒 ITEMS DE LA ORDEN
+  //  ITEMS DE LA ORDEN
   // =============================================
   items: [{
     product: { 
@@ -83,7 +83,7 @@ const orderSchema = new mongoose.Schema({
   }],
 
   // =============================================
-  // 💰 INFORMACIÓN DE PAGO
+  //  INFORMACIÓN DE PAGO
   // =============================================
   total: { 
     type: Number, 
@@ -104,21 +104,21 @@ const orderSchema = new mongoose.Schema({
   },
 
   // =============================================
-  // 🔐 SISTEMAS DE PAGO - STRIPE
+  //  SISTEMAS DE PAGO - STRIPE
   // =============================================
   stripeSessionId: String,
   stripePaymentIntentId: String,
   stripeCustomerId: String,
 
   // =============================================
-  // 🔐 SISTEMAS DE PAGO - MERCADO PAGO
+  // SISTEMAS DE PAGO - MERCADO PAGO
   // =============================================
   mercadoPagoId: String,
   mercadoPagoPaymentId: String,
   mercadoPagoPreferenceId: String,
 
   // =============================================
-  // 📦 ESTADOS Y SEGUIMIENTO
+  // ESTADOS Y SEGUIMIENTO
   // =============================================
   status: {
     type: String,
@@ -133,7 +133,7 @@ const orderSchema = new mongoose.Schema({
   },
 
   // =============================================
-  // 📮 INFORMACIÓN DE ENVÍO
+  // INFORMACIÓN DE ENVÍO
   // =============================================
   shippingAddress: {
     street: { type: String, trim: true },
@@ -157,7 +157,7 @@ const orderSchema = new mongoose.Schema({
   trackingNumber: String,
 
   // =============================================
-  // 📝 INFORMACIÓN ADICIONAL
+  // INFORMACIÓN ADICIONAL
   // =============================================
   customerNotes: {
     type: String,
@@ -172,16 +172,16 @@ const orderSchema = new mongoose.Schema({
   },
 
   // =============================================
-  // 🔢 IDENTIFICADORES ÚNICOS
+  // IDENTIFICADORES ÚNICOS
   // =============================================
   orderNumber: { 
     type: String, 
-    unique: true, // ✅ SOLO AQUÍ - sin índice duplicado
+    unique: true, 
     sparse: true
   },
 
   // =============================================
-  // ⏰ FECHAS DE SEGUIMIENTO
+  // FECHAS DE SEGUIMIENTO
   // =============================================
   paidAt: Date,
   shippedAt: Date,
@@ -199,14 +199,14 @@ const orderSchema = new mongoose.Schema({
 });
 
 // =============================================
-// 🎯 PLUGINS Y MÉTODOS
+// PLUGINS Y MÉTODOS
 // =============================================
 
-// 🔥 PLUGIN DE PAGINACIÓN (CRÍTICO - SOLUCIONA EL ERROR)
+//  PLUGIN DE PAGINACIÓN (CRÍTICO - SOLUCIONA EL ERROR)
 orderSchema.plugin(mongoosePaginate);
 
 // =============================================
-// 📊 VIRTUAL FIELDS
+// VIRTUAL FIELDS
 // =============================================
 
 // Total de items en la orden
@@ -225,7 +225,7 @@ orderSchema.virtual('isCompleted').get(function() {
 });
 
 // =============================================
-// 🎯 MIDDLEWARES
+// MIDDLEWARES
 // =============================================
 
 // Generar número de orden antes de guardar
@@ -255,11 +255,11 @@ orderSchema.pre('save', function(next) {
 });
 
 // =============================================
-// 🔍 ÍNDICES OPTIMIZADOS (SIN DUPLICADOS)
+// ÍNDICES OPTIMIZADOS (SIN DUPLICADOS)
 // =============================================
 
-// ❌ ELIMINADO: orderSchema.index({ orderNumber: 1 }, { unique: true });
-// ✅ Ya está definido en el campo orderNumber: { unique: true }
+// ELIMINADO: orderSchema.index({ orderNumber: 1 }, { unique: true });
+// Ya está definido en el campo orderNumber: { unique: true }
 
 orderSchema.index({ createdAt: -1 });
 orderSchema.index({ status: 1 });
@@ -271,7 +271,7 @@ orderSchema.index({ status: 1, createdAt: -1 });
 orderSchema.index({ paymentMethod: 1, createdAt: -1 });
 
 // =============================================
-// 📋 MÉTODOS DE INSTANCIA
+// MÉTODOS DE INSTANCIA
 // =============================================
 
 // Marcar como pagado
@@ -287,7 +287,6 @@ orderSchema.methods.markAsPaid = function(paymentId, method = 'mercadopago') {
   }
 };
 
-// Actualizar estado con registro de fecha
 orderSchema.methods.updateStatus = function(newStatus) {
   this.status = newStatus;
   this.statusUpdatedAt = new Date();

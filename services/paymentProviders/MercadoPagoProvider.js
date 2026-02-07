@@ -12,7 +12,7 @@ class MercadoPagoProvider {
 
   async createCheckout(orderData) {
     try {
-      console.log("🔐 CONFIGURACIÓN MERCADO PAGO:");
+      console.log(" CONFIGURACIÓN MERCADO PAGO:");
       console.log(" - Token:", process.env.MERCADOPAGO_ACCESS_TOKEN ? "✅ PRESENTE" : "❌ FALTANTE");
       console.log(" - Tipo:", process.env.MERCADOPAGO_ACCESS_TOKEN?.startsWith('TEST-') ? "🟡 MODO PRUEBAS" : "🔵 MODO PRODUCCIÓN");
 
@@ -117,3 +117,4 @@ class MercadoPagoProvider {
 //modulo
 
 module.exports = MercadoPagoProvider;
+
