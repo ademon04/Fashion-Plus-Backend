@@ -19,7 +19,7 @@ app.use(cors({
   origin: [
     'https://fashion-plus-frontend.vercel.app',
     'http://localhost:3000',
-    'https://www.fashionpluspremium.com',
+    'https://fashionpluspremium.com/'
     
   ],
   credentials: true,
@@ -356,7 +356,7 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(` Servidor corriendo en puerto ${PORT}`);
-  console.log(`Frontend: ${process.env.FRONTEND_URL || 'https://fashion-plus-frontend.vercel.app'}`);
+  console.log(`Frontend: ${process.env.FRONTEND_URL || 'https://fashionpluspremium.com'}`);
   console.log(` Cloudinary: ${process.env.CLOUDINARY_CLOUD_NAME ? 'Configurado' : ' No configurado'}`);
   console.log(` Stripe: ${process.env.STRIPE_SECRET_KEY ? 'Configurado' : ' No configurado'}`);
   console.log(` Entorno: ${process.env.NODE_ENV || 'development'}`);
