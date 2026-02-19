@@ -362,3 +362,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(` Entorno: ${process.env.NODE_ENV || 'development'}`);
   console.log(` Webhook Stripe: https://fashion-plus-production.up.railway.app/api/payments/webhook/stripe`);
 });
+
+
+
+
+

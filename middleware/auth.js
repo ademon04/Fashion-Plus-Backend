@@ -7,7 +7,7 @@ const auth = async (req, res, next) => {
   try {
     let token = req.cookies.admin_token;
     
-    // ✅ FALLBACK: Si no hay cookie, buscar en header
+    //  FALLBACK: Si no hay cookie, buscar en header
     if (!token && req.headers.authorization) {
       const parts = req.headers.authorization.split(' ');
       if (parts.length === 2 && parts[0] === 'Bearer') {
@@ -16,7 +16,7 @@ const auth = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({ error: 'Acceso denegado. No hay token.' });
+      return res.status(404).json({ error: 'Acceso denegado. No hay token.' });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
