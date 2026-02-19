@@ -1,14 +1,12 @@
 // 📁 backend/controllers/productController.js
 const Product = require('../models/Product');
 
-// =========================================================
-// 🟩 1. CREATE PRODUCT - Cloudinary + Validaciones
-// =========================================================
+//  CREATE PRODUCT - Cloudinary + Validaciones
 exports.createProduct = async (req, res) => {
   try {
-    console.log("🎯 CREATE PRODUCT - Iniciando");
+    console.log(" CREATE PRODUCT - Iniciando");
     
-    // 🛡️ VALIDACIÓN: Imágenes obligatorias
+    // VALIDACIÓN: Imágenes obligatorias
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({
         success: false,
@@ -27,7 +25,7 @@ exports.createProduct = async (req, res) => {
       featured = "false" 
     } = req.body;
 
-    // 🛡️ VALIDACIONES DE CAMPOS OBLIGATORIOS
+    //  VALIDACIONES DE CAMPOS OBLIGATORIOS
    if (!name || name.trim().length === 0) {
   return res.status(400).json({ 
     success: false, 
@@ -49,13 +47,13 @@ exports.createProduct = async (req, res) => {
       });
     }
 
-    // 🛡️ CLOUDINARY: URLs completas
+    //  CLOUDINARY: URLs completas
     const imageUrls = req.files.map(file => {
-      console.log(`🖼️ Imagen subida: ${file.path}`);
+      console.log(`Imagen subida: ${file.path}`);
       return file.path;
     });
 
-    // 🛡️ CONSTRUCCIÓN SEGURA DEL PRODUCTO
+    //  CONSTRUCCIÓN SEGURA DEL PRODUCTO
     const productData = {
   name: name,                    // SIN .trim() - permite espacios normales
   description: description,      // SIN .trim() - permite espacios normales
@@ -69,20 +67,19 @@ exports.createProduct = async (req, res) => {
   sku: `SKU-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
 };
 
-    // 🛡️ PARSEO SEGURO DE TALLAS
+    // PARSEO SEGURO DE TALLAS
     try {
       productData.sizes = JSON.parse(sizes || "[]");
     } catch (error) {
       productData.sizes = [];
     }
 
-    console.log("📦 Producto a guardar:", productData);
 
-    // 🛡️ GUARDADO EN BASE DE DATOS
+    // GUARDADO EN BASE DE DATOS
     const product = new Product(productData);
     await product.save();
 
-    console.log("✅ PRODUCTO CREADO EXITOSAMENTE - ID:", product._id);
+    console.log("PRODUCTO CREADO EXITOSAMENTE - ID:", product._id);
 
     res.status(201).json({
       success: true,
@@ -91,9 +88,9 @@ exports.createProduct = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ ERROR EN CREATE PRODUCT:", error);
+    console.error(" ERROR EN CREATE PRODUCT:", error);
     
-    // 🛡️ MANEJO ESPECÍFICO DE ERRORES
+    // MANEJO ESPECÍFICO DE ERRORES
     if (error.name === 'ValidationError') {
       const errors = Object.values(error.errors).map(err => err.message);
       return res.status(400).json({

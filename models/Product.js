@@ -18,7 +18,7 @@ const productSchema = new mongoose.Schema({
     enum: [
       'camisa', 'playera', 'pantalones', 'chamarra', 'sudadera', 
       'chaleco', 'tenis', 'zapatos', 'conjuntos', 'vestidos', 
-      'bolsas', 'ropa-niños'
+      'bolsas', 'ropa-niños','traje-de-baño', 'accesorios'
     ]
   },
   sizes: [{
