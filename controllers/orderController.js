@@ -22,12 +22,20 @@ exports.createOrder = async (req, res) => {
     const { customer, items, shippingAddress, customerNotes, paymentMethod } = req.body;
     const userId = req.user ? req.user.id : null;
 
+    // 🔥 DEBUG LOGS
+    console.log('👤 Customer:', customer);
+    console.log('💳 Payment Method:', paymentMethod);
+    console.log('🏠 Shipping Address:', shippingAddress);
+    console.log('📦 Items:', items);
+
     // Validaciones básicas
     if (!items || items.length === 0) {
+      console.error('❌ No hay items en la orden');
       return res.status(400).json({ error: "No hay items en la orden" });
     }
 
     if (!customer?.name || !customer?.email) {
+      console.error('❌ Información del cliente incompleta');
       return res.status(400).json({ error: "Información del cliente incompleta" });
     }
 
@@ -45,13 +53,14 @@ exports.createOrder = async (req, res) => {
       const productId = item.productId || item.product;
 
       if (!productId) {
+        console.error(`❌ Item ${i + 1} sin productId/product`);
         return res.status(400).json({ error: "Item sin productId/product" });
       }
 
       // Buscar producto en BD
       const product = await Product.findById(productId);
       if (!product) {
-        console.log("❌ Producto no encontrado con ID:", productId);
+        console.error("❌ Producto no encontrado con ID:", productId);
         return res.status(404).json({ error: `Producto no encontrado` });
       }
 
@@ -60,12 +69,14 @@ exports.createOrder = async (req, res) => {
       // Validar stock por talla
       const sizeStock = product.sizes.find((s) => s.size === item.size);
       if (!sizeStock) {
+        console.error(`❌ Talla ${item.size} no disponible`);
         return res.status(400).json({
           error: `Talla ${item.size} no disponible para ${product.name}`,
         });
       }
 
       if (sizeStock.stock < item.quantity) {
+        console.error(`❌ Stock insuficiente: ${sizeStock.stock} < ${item.quantity}`);
         return res.status(400).json({
           error: `Stock insuficiente para ${product.name} talla ${item.size}. Disponible: ${sizeStock.stock}, Solicitado: ${item.quantity}`,
         });
@@ -82,8 +93,7 @@ exports.createOrder = async (req, res) => {
         quantity: item.quantity,
         price: product.price,
         subtotal: itemTotal,
-        image: product.images && product.images.length > 0 ? product.images[0] : '', // ✅ Asegurar que se guarde
-
+        images: product.images && product.images.length > 0 ? product.images : []
       });
 
       console.log(`📦 Item ${i + 1} procesado: ${product.name} - $${product.price} x ${item.quantity} = $${itemTotal}`);
@@ -91,7 +101,7 @@ exports.createOrder = async (req, res) => {
 
     console.log("💰 TOTAL CALCULADO:", total);
 
-    // CREAR ORDEN EN BASE DE DATOS - CON paymentMethod
+    // CREAR ORDEN EN BASE DE DATOS
     const order = new Order({
       user: userId,
       customer: {
@@ -105,8 +115,8 @@ exports.createOrder = async (req, res) => {
       shippingAddress: shippingAddress || 'No proporcionado',
       customerNotes: customerNotes || '',
       status: 'pending',
-      // ✅ GUARDAR paymentMethod RECIBIDO
-      paymentMethod: paymentMethod || 'mercadopago'
+      paymentMethod: paymentMethod || 'mercadopago',
+      paymentStatus: 'pending'
     });
 
     await order.save();
@@ -117,22 +127,69 @@ exports.createOrder = async (req, res) => {
 
     // ✅ DIFERENCIAR SEGÚN MÉTODO DE PAGO
     if (paymentMethod === 'stripe') {
-      console.log("🔄 Orden creada para Stripe - El frontend debe crear la sesión");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      console.log("💳 INICIANDO PROCESO STRIPE");
+      console.log("🔑 Stripe Key existe:", !!process.env.STRIPE_SECRET_KEY);
+      console.log("🔑 Primeros 7 chars:", process.env.STRIPE_SECRET_KEY?.substring(0, 7));
       
-      // RESPUESTA PARA STRIPE
-      res.json({
-        success: true,
-        message: "Orden creada exitosamente para Stripe",
-        order: {
-          id: order._id,
-          orderNumber: order.orderNumber,
-          total: order.total,
-          status: order.status,
-          items: order.items.length
-        },
-        paymentMethod: 'stripe'
-        // ❌ NO incluir paymentUrl para Stripe
-      });
+      try {
+        const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+        console.log("✅ Stripe inicializado correctamente");
+        
+        const session = await stripe.checkout.sessions.create({
+          payment_method_types: ['card'],
+          line_items: orderItems.map(item => ({
+            price_data: {
+              currency: 'mxn',
+              product_data: {
+                name: item.productName,
+                images: item.images?.[0] ? [item.images[0]] : []
+              },
+              unit_amount: Math.round(item.price * 100)
+            },
+            quantity: item.quantity
+          })),
+          mode: 'payment',
+          success_url: `${process.env.FRONTEND_URL}/pago-exitoso?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: `${process.env.FRONTEND_URL}/pago-cancelado`,
+          metadata: {
+            orderId: order._id.toString()
+          }
+        });
+        
+        console.log("✅ Sesión Stripe creada:", session.id);
+        console.log("🔗 URL de pago:", session.url);
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        
+        return res.status(201).json({
+          success: true,
+          message: "Orden creada exitosamente",
+          order: {
+            id: order._id,
+            orderNumber: order.orderNumber,
+            total: order.total,
+            status: order.status,
+            items: order.items.length
+          },
+          paymentMethod: 'stripe',
+          stripeSessionUrl: session.url,
+          sessionId: session.id
+        });
+        
+      } catch (stripeError) {
+        console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.error("❌ ERROR STRIPE:");
+        console.error("Mensaje:", stripeError.message);
+        console.error("Tipo:", stripeError.type);
+        console.error("Stack:", stripeError.stack);
+        console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        
+        return res.status(500).json({
+          success: false,
+          error: "Error al crear sesión de Stripe",
+          details: stripeError.message
+        });
+      }
       
     } else {
       // ======================================================
@@ -153,7 +210,6 @@ exports.createOrder = async (req, res) => {
             quantity: Number(item.quantity),
             currency_id: "MXN",
             description: `Talla: ${item.size}`,
-            
           })),
           back_urls: {
             success: `${process.env.FRONTEND_URL}/checkout/success`,
@@ -189,7 +245,7 @@ exports.createOrder = async (req, res) => {
       const paymentUrl = response.sandbox_init_point;
       
       if (!paymentUrl) {
-        console.log("❌ ERROR: No se generó URL de pago sandbox");
+        console.error("❌ ERROR: No se generó URL de pago sandbox");
         return res.status(500).json({ 
           error: "Error al generar link de pago. Contacta al administrador." 
         });
@@ -198,7 +254,7 @@ exports.createOrder = async (req, res) => {
       console.log("🔗 URL DE PAGO GENERADA:", paymentUrl);
 
       // RESPUESTA EXITOSA PARA MERCADO PAGO
-      res.json({
+      return res.status(201).json({
         success: true,
         message: "Orden creada exitosamente",
         order: {
@@ -219,9 +275,9 @@ exports.createOrder = async (req, res) => {
     }
 
   } catch (error) {
-    console.log("🔥 ERROR CRÍTICO EN createOrder:");
-    console.log("Error message:", error.message);
-    console.log("Error stack:", error.stack);
+    console.error("🔥 ERROR CRÍTICO EN createOrder:");
+    console.error("Error message:", error.message);
+    console.error("Error stack:", error.stack);
     
     // Manejar errores específicos de Mercado Pago
     if (error.message?.includes('401')) {
@@ -237,23 +293,23 @@ exports.createOrder = async (req, res) => {
     }
 
     return res.status(500).json({ 
-      error: "Error interno del servidor. Por favor, intenta nuevamente." 
+      success: false,
+      error: "Error interno del servidor. Por favor, intenta nuevamente.",
+      details: error.message
     });
   }
 };
 
 // ======================================================
-// 📡 WEBHOOK - RECIBIR NOTIFICACIONES DE MERCADO PAGO (CORREGIDO)
+// 📡 WEBHOOK - RECIBIR NOTIFICACIONES DE MERCADO PAGO
 // ======================================================
 exports.webhook = async (req, res) => {
   try {
     console.log("📡 WEBHOOK RECIBIDO");
     
-    // ✅ VALIDACIÓN MEJORADA - PERMITE PRUEBAS DE MERCADO PAGO
     const signature = req.headers['x-signature'];
     const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
 
-    // 🔥 SOLUCIÓN: Solo validar si hay firma Y secreto configurado
     if (webhookSecret && signature) {
       const payload = JSON.stringify(req.body);
       const computedSignature = crypto
@@ -262,12 +318,11 @@ exports.webhook = async (req, res) => {
         .digest('hex');
       
       if (signature !== computedSignature) {
-        console.log("❌ Webhook rechazado - firma inválida");
+        console.error("❌ Webhook rechazado - firma inválida");
         return res.sendStatus(403);
       }
       console.log("✅ Webhook autenticado correctamente");
     } else if (webhookSecret && !signature) {
-      // 🔥 NUEVO: Si hay secreto pero no firma, es una prueba de MP
       console.log("⚠️ Webhook de prueba (sin firma) - permitiendo acceso");
     } else {
       console.log("⚠️ Webhook sin validación (secreto no configurado)");
@@ -282,37 +337,28 @@ exports.webhook = async (req, res) => {
       const paymentId = data.id;
       console.log("💳 Procesando notificación de pago:", paymentId);
 
-      // Buscar orden por ID de Mercado Pago
       const order = await Order.findOne({ mercadoPagoId: paymentId });
       
       if (order) {
         console.log("✅ Orden encontrada:", order._id);
         
-        // En un entorno real, aquí obtendrías el estado real del pago
-        // desde la API de Mercado Pago usando paymentId
-        // Por ahora, actualizamos a un estado genérico
-        
         order.status = 'processing';
+        order.paymentStatus = 'approved';
         order.paymentProcessedAt = new Date();
         await order.save();
         
         console.log("🔄 Orden actualizada a status:", order.status);
         
-        // Aquí podrías:
-        // - Enviar email de confirmación
-        // - Actualizar inventario
-        // - Notificar al admin
-        
       } else {
         console.log("⚠️ Orden no encontrada para payment ID:", paymentId);
         
-        // Intentar buscar por external_reference como fallback
         if (req.body.data?.external_reference) {
           const orderByRef = await Order.findById(req.body.data.external_reference);
           if (orderByRef) {
             console.log("✅ Orden encontrada por external_reference:", orderByRef._id);
             orderByRef.mercadoPagoId = paymentId;
             orderByRef.status = 'processing';
+            orderByRef.paymentStatus = 'approved';
             await orderByRef.save();
           }
         }
@@ -321,45 +367,35 @@ exports.webhook = async (req, res) => {
       console.log("ℹ️ Webhook de tipo no manejado:", type);
     }
 
-    // ✅ IMPORTANTE: Siempre responder 200 a Mercado Pago
     res.sendStatus(200);
     
   } catch (error) {
     console.error("❌ ERROR en webhook:", error);
-    // Aún con error, responder 200 para que Mercado Pago no reintente
     res.sendStatus(200);
   }
 };
 
 // ======================================================
-// 📋 OBTENER TODAS LAS ÓRDENES (ADMIN) - CON FILTROS MEJORADOS
+// 📋 OBTENER TODAS LAS ÓRDENES (ADMIN) - CON FILTROS
 // ======================================================
 exports.getOrders = async (req, res) => {
   try {
-    // ✅ RECIBIR TODOS LOS FILTROS (incluyendo archived)
     const { status, paymentMethod, paymentStatus, archived, page = 1, limit = 10 } = req.query;
     
     let filter = {};
     
-    // ✅ FILTRAR POR ARCHIVADO (NUEVO)
-    // Si viene 'true' o true, mostrar solo archivadas
-    // Si viene 'false' o false, mostrar solo NO archivadas
-    // Si no viene, mostrar todas (sin filtro)
     if (archived !== undefined && archived !== '') {
       filter.archived = archived === 'true' || archived === true;
     }
     
-    // ✅ FILTRAR POR STATUS
     if (status && status !== 'all' && status !== '') {
       filter.status = status;
     }
     
-    // ✅ FILTRAR POR MÉTODO DE PAGO
     if (paymentMethod && paymentMethod !== 'all' && paymentMethod !== '') {
       filter.paymentMethod = paymentMethod;
     }
     
-    // ✅ FILTRAR POR ESTADO DE PAGO
     if (paymentStatus && paymentStatus !== 'all' && paymentStatus !== '') {
       filter.paymentStatus = paymentStatus;
     }
@@ -371,7 +407,7 @@ exports.getOrders = async (req, res) => {
       limit: parseInt(limit),
       sort: { createdAt: -1 },
       populate: [
-        { path: "items.product", select: "name image images" }, // AGREGADO 'images'
+        { path: "items.product", select: "name image images" },
         { path: "user", select: "name email" }
       ]
     };
@@ -388,12 +424,11 @@ exports.getOrders = async (req, res) => {
       currentPage: orders.page,
       hasNext: orders.hasNextPage,
       hasPrev: orders.hasPrevPage,
-      // ✅ INFORMACIÓN DE FILTROS APLICADOS
       filtersApplied: {
         status: status || 'none',
         paymentMethod: paymentMethod || 'none',
         paymentStatus: paymentStatus || 'none',
-        archived: archived || 'none' // AGREGADO
+        archived: archived || 'none'
       }
     });
 
@@ -554,15 +589,12 @@ exports.getMyOrders = async (req, res) => {
 };
 
 // ======================================================
-// ARCHIVAR/ELIMINAR ORDEN (ADMIN) - FUNCIONES NUEVAS
+// ARCHIVAR ORDEN (ADMIN)
 // ======================================================
 exports.archiveOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
-
     
-    
-    // Opción simple: siempre archivar (sin validaciones complejas)
     const order = await Order.findByIdAndUpdate(
       orderId,
       {
@@ -601,13 +633,12 @@ exports.archiveOrder = async (req, res) => {
 };
 
 // ======================================================
-// 📂 RESTAURAR ORDEN ARCHIVADA (ADMIN) - ALTERNATIVA
+// 📂 RESTAURAR ORDEN ARCHIVADA (ADMIN)
 // ======================================================
 exports.restoreOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
 
-    // 🛡️ VALIDACIÓN: ID válido
     if (!orderId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
         success: false,
@@ -632,7 +663,6 @@ exports.restoreOrder = async (req, res) => {
       });
     }
 
-
     res.json({
       success: true,
       message: "Orden restaurada correctamente",
@@ -653,14 +683,13 @@ exports.restoreOrder = async (req, res) => {
 };
 
 // ======================================================
-// 🗑️ ELIMINACIÓN PERMANENTE (SOLO PARA ORDENES ARCHIVADAS)
+// 🗑️ ELIMINACIÓN PERMANENTE
 // ======================================================
 exports.deletePermanently = async (req, res) => {
   try {
     const orderId = req.params.id;
-    console.log(` ELIMINANDO ORDEN PERMANENTEMENTE: ${orderId}`);
+    console.log(`🗑️ ELIMINANDO ORDEN PERMANENTEMENTE: ${orderId}`);
 
-    // 🛡️ VALIDACIÓN: ID válido
     if (!orderId.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({
         success: false,
@@ -668,7 +697,6 @@ exports.deletePermanently = async (req, res) => {
       });
     }
 
-    // Verificar que la orden existe y está archivada
     const order = await Order.findById(orderId);
     
     if (!order) {
@@ -678,15 +706,6 @@ exports.deletePermanently = async (req, res) => {
       });
     }
 
-    // Opcional: Solo permitir eliminar órdenes archivadas
-    // if (!order.archived) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     error: "Solo se pueden eliminar órdenes archivadas"
-    //   });
-    // }
-
-    // Eliminar físicamente
     await Order.findByIdAndDelete(orderId);
 
     console.log(`✅ ORDEN ELIMINADA PERMANENTEMENTE: ${orderId}`);
@@ -715,23 +734,20 @@ exports.deletePermanently = async (req, res) => {
 // ======================================================
 exports.getArchivedOrders = async (req, res) => {
   try {
-    console.log(" OBTENIENDO ÓRDENES ARCHIVADAS");
+    console.log("📂 OBTENIENDO ÓRDENES ARCHIVADAS");
     
     const { status, paymentMethod, paymentStatus, page = 1, limit = 20 } = req.query;
     
     let filter = { archived: true };
     
-    // ✅ FILTRAR POR STATUS
     if (status && status !== 'all' && status !== '') {
       filter.status = status;
     }
     
-    // ✅ FILTRAR POR MÉTODO DE PAGO
     if (paymentMethod && paymentMethod !== 'all' && paymentMethod !== '') {
       filter.paymentMethod = paymentMethod;
     }
     
-    // ✅ FILTRAR POR ESTADO DE PAGO
     if (paymentStatus && paymentStatus !== 'all' && paymentStatus !== '') {
       filter.paymentStatus = paymentStatus;
     }
@@ -772,7 +788,7 @@ exports.getArchivedOrders = async (req, res) => {
 };
 
 // ======================================================
-// 🎯 EXPORTACIÓN ÚNICA - ¡NO DUPLICAR!
+// 🎯 EXPORTACIÓN
 // ======================================================
 module.exports = {
   createOrder: exports.createOrder,
