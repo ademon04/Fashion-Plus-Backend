@@ -779,7 +779,7 @@ exports.getArchivedOrders = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("❌ ERROR en getArchivedOrders:", error);
+    console.error(" ERROR en getArchivedOrders:", error);
     res.status(500).json({ 
       success: false,
       error: "Error al obtener órdenes archivadas" 
